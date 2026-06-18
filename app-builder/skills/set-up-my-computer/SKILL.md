@@ -32,7 +32,9 @@ in with a shared email or password.
      their click/password.
 3. **Sign in with tokens** (never a shared login):
    - GitHub: ask them to paste their GitHub token, then run
-     `gh auth login --with-token` fed from the pasted value.
+     `gh auth login --with-token` fed from the pasted value, and
+     `gh config set git_protocol https` so clones use the token over HTTPS
+     (avoids a stray SSH key resolving to the wrong account).
    - Netlify: ask for their Netlify token and save it as `NETLIFY_AUTH_TOKEN` in
      their shell profile (e.g. append to `~/.zshrc`) and the current session.
 4. **Set the organisation:** add `export BUILDER_GH_ORG=<org name>` to their shell
