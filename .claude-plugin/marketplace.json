@@ -1,0 +1,11 @@
+{
+  "name": "astrolabs",
+  "owner": { "name": "AstroLabs", "email": "piotr@astrolabs.com" },
+  "plugins": [
+    {
+      "name": "app-builder",
+      "source": "./app-builder",
+      "description": "Build and ship full-stack web apps with four plain phrases — no code, git, or terminal."
+    }
+  ]
+}

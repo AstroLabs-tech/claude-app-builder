@@ -1,0 +1,6 @@
+{
+  "name": "app-builder",
+  "description": "Build and ship full-stack web apps with four plain phrases — no code, git, or terminal. Includes one-time setup, new-app provisioning, local preview, shareable previews, publish, rollback, secrets, and access control.",
+  "version": "0.1.0",
+  "author": { "name": "AstroLabs" }
+}
