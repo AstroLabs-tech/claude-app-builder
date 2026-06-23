@@ -13,7 +13,8 @@ verify it all works. Talk in plain language — don't explain or name the toolin
 Their admin gives them **two access tokens** (one for GitHub, one for Netlify) and
 the **organisation name**. Ask for these in plain words at the sign-in step —
 e.g. *"Paste the GitHub access token your admin gave you."* Never ask them to log
-in with a shared email or password.
+in with a shared email or password. You'll also ask for their **own name and work
+email** (so their work is credited to them, not the shared login).
 
 ## Steps
 
@@ -37,12 +38,21 @@ in with a shared email or password.
      (avoids a stray SSH key resolving to the wrong account).
    - Netlify: ask for their Netlify token and save it as `NETLIFY_AUTH_TOKEN` in
      their shell profile (e.g. append to `~/.zshrc`) and the current session.
-4. **Set the organisation:** add `export BUILDER_GH_ORG=<org name>` to their shell
+4. **Stamp their work as theirs.** Everyone on the team shares one GitHub login,
+   so the *only* record of who built what is the name on each change. Ask for
+   their **own name and work email** — explicitly NOT the shared team login —
+   e.g. *"What's your name and work email? I'll put it on everything you make so
+   it's credited to you."* Set it once for this machine:
+   `git config --global user.name "<their name>"` and
+   `git config --global user.email "<their own work email>"`. It flows into every
+   app they create, so they're never asked again.
+5. **Set the organisation:** add `export BUILDER_GH_ORG=<org name>` to their shell
    profile and current session. The admin gives them the org name with the tokens
    (the ops team — the first team on the platform — uses `AstroLabs-ops`).
-5. **Verify:** confirm `gh auth status` shows them signed in and `netlify status`
-   shows the team. If anything failed, explain it in one plain sentence and offer
-   to retry just that piece.
+6. **Verify:** confirm `gh auth status` shows them signed in, `netlify status`
+   shows the team, and `git config --global user.email` is their own address (not
+   the shared login). If anything failed, explain it in one plain sentence and
+   offer to retry just that piece.
 
 ## Reply when done
 > "All set — your computer's ready. Want to build something? Just say:
@@ -50,5 +60,7 @@ in with a shared email or password.
 
 ## Never
 - Never ask for a shared email or password — only the tokens the admin issued.
+- Never set their git identity to the shared team login — always their own name
+  and work email, so each person's work is credited to them.
 - Never print token values back, and never save them into an app's code.
 - Never show raw error logs — explain in one plain sentence and offer to fix.
