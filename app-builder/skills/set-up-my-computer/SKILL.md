@@ -38,7 +38,8 @@ in with a shared email or password.
    - Netlify: ask for their Netlify token and save it as `NETLIFY_AUTH_TOKEN` in
      their shell profile (e.g. append to `~/.zshrc`) and the current session.
 4. **Set the organisation:** add `export BUILDER_GH_ORG=<org name>` to their shell
-   profile and current session. The admin tells them the org — it's `AstroLabs-tech`.
+   profile and current session. The admin gives them the org name with the tokens
+   (the ops team — the first team on the platform — uses `AstroLabs-ops`).
 5. **Verify:** confirm `gh auth status` shows them signed in and `netlify status`
    shows the team. If anything failed, explain it in one plain sentence and offer
    to retry just that piece.
