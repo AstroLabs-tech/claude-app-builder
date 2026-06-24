@@ -23,7 +23,11 @@ email** (so their work is credited to them, not the shared login).
 2. **Install the missing tools** (each only if absent):
    - **Node** — via nvm (installs into the home folder, no admin password needed):
      `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash`,
-     then load nvm and run `nvm install 20`.
+     then load nvm and run `nvm install 20`. Make sure the nvm load lines (and
+     `~/.local/bin` on PATH, if you put the gh CLI there) land in `~/.zshrc`, and
+     **source nvm before any later or background command** — non-login/background
+     shells don't auto-load it, so `node`/`npm`/`netlify` come back "command not
+     found" otherwise.
    - **Netlify CLI** — `npm install -g netlify-cli`.
    - **GitHub CLI** — `brew install gh` if Homebrew is present; otherwise download
      the latest release for their OS into a user folder and add it to PATH.
@@ -32,11 +36,19 @@ email** (so their work is credited to them, not the shared login).
      Install,"* and wait for them to confirm. This is the one step that may need
      their click/password.
 3. **Sign in with tokens** (never a shared login):
-   - GitHub: ask them to paste their GitHub token, then run
-     `gh auth login --with-token` fed from the pasted value, and
-     `gh config set git_protocol https` so clones use the token over HTTPS
-     (avoids a stray SSH key resolving to the wrong account).
-   - Netlify: ask for their Netlify token and save it as `NETLIFY_AUTH_TOKEN` in
+   - **GitHub:** ask them to paste their GitHub token, then, in order:
+     - `gh auth login --with-token` (fed from the pasted value)
+     - **`gh auth setup-git`** — wires git's credential helper to the token;
+       without it the first clone dies with *"could not read Username for
+       https://github.com"*.
+     - `gh config set git_protocol https` so clones use the token over HTTPS
+       (avoids a stray SSH key resolving to the wrong account).
+     - **Pre-flight the token's permissions:** it must carry **`repo`, `read:org`,
+       and `workflow`** (read the scopes line from `gh auth status`). If one is
+       missing, don't surface the raw error — say plainly: *"The access token your
+       admin gave you is missing a permission (name it, e.g. `read:org`). Ask them
+       to reissue it with repo, read:org, and workflow."* and stop here.
+   - **Netlify:** ask for their Netlify token and save it as `NETLIFY_AUTH_TOKEN` in
      their shell profile (e.g. append to `~/.zshrc`) and the current session.
 4. **Stamp their work as theirs.** Everyone on the team shares one GitHub login,
    so the *only* record of who built what is the name on each change. Ask for
@@ -63,4 +75,6 @@ email** (so their work is credited to them, not the shared login).
 - Never set their git identity to the shared team login — always their own name
   and work email, so each person's work is credited to them.
 - Never print token values back, and never save them into an app's code.
+- Never push past sign-in with a token missing a scope — name the missing
+  permission (e.g. `read:org`) and ask the admin to reissue it.
 - Never show raw error logs — explain in one plain sentence and offer to fix.

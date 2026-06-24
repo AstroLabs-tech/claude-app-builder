@@ -30,18 +30,33 @@ connected to its own Netlify site. Assumes the one-time platform setup is done
    `createSite` + a deploy key gives you manual builds but **not** that webhook,
    so PRs and merges won't auto-deploy. `netlify init` is the only thing that mints
    the webhook correctly.)
+   **Admin prerequisite (once per org, not a builder step):** the Netlify GitHub
+   App must already be installed on the builder org with access to its repos (see
+   SETUP.md). If it isn't, `netlify init` 404s on the deploy key / *"does the
+   repository exist"* — say plainly *"Your admin needs to connect Netlify to the
+   team's GitHub once — I can't do that part,"* never a raw error.
    `netlify init` is an arrow-key menu — drive it precisely (this is where time
    gets lost otherwise):
    - **Action:** the highlighted default is *Connect to an existing project* —
      move **down one** to **Create & configure a new project** and select it.
    - **Team:** AstroLabs Tech Team.
    - **Project name:** a globally-unique slug (per step 1).
+   - **GitHub authorization:** choose **"Authorize with a GitHub personal access
+     token" and use the team token** — **never the browser authorization**, which
+     picks up whatever GitHub session is open in the builder's browser (usually
+     their *personal* account, with no access to the org repo → the 404 above).
    - **Build settings:** accept the detected Next.js defaults (from `netlify.toml`).
    - If you script it with `expect`: match prompts with **`-nocase`** (this expect
      build silently ignores the `(?i)` inline flag — a known time-sink), and send
-     a down-arrow (`\033[B`) then Enter for the menu.
-   Confirm with `netlify status`. The first app ever connected triggers a one-time
-   browser authorization of Netlify on the org; after that it's silent.
+     a down-arrow (`\033[B`) then Enter for the menu. For the token, match the
+     **input** prompt ("your github personal access token") — not the menu item
+     that also contains "personal access token" — and send it **exactly once** (no
+     `exp_continue`), or a redraw re-sends it and garbles auth. *(This token recipe
+     still needs a live validation run.)*
+   - **If a wrong GitHub account got cached** from a stray browser authorization,
+     clear the `auth.github` entry in `~/Library/Preferences/netlify/config.json`
+     and re-run via the token path.
+   Confirm with `netlify status`.
 5. Confirm the connection is live (the first preview can be triggered by the first
    "save a preview").
 
@@ -53,6 +68,8 @@ connected to its own Netlify site. Assumes the one-time platform setup is done
 
 - Never put a Netlify deploy token into the repo — the native integration handles
   deploys. (A Netlify token lives only on this machine, for rollback.)
+- Never use `netlify init`'s browser GitHub authorization — it grabs the builder's
+  personal GitHub session, not the team account. Always the team token (PAT path).
 - Never say "repo", "org", "template", or "deploy" to the builder.
 - Never create the repo under an enterprise/SSO personal identity — use the team
   account that owns the builder org.
