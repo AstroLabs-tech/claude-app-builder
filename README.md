@@ -33,9 +33,11 @@ Then say **set up my computer** and have ready (your admin gives you these):
 
 Issue each builder their own tokens so you can revoke individually and never share
 a password:
-1. **GitHub** — a classic token (scopes: `repo` + `workflow`) from the team service
-   account that's a member of the department's builder org (ops: `AstroLabs-ops`).
-   If the enterprise enforces SSO, authorize the token for that org or it can't see it.
+1. **GitHub** — a classic token (scopes: **`repo`, `read:org`, `workflow`**) from
+   the team service account that's a member of the department's builder org (ops:
+   `AstroLabs-ops`). `read:org` is required — `gh auth login` rejects a token
+   without it. If the enterprise enforces SSO, authorize the token for that org or
+   it can't see it.
 2. **Netlify** — a personal access token from the team Netlify account.
 
 Builders authenticate with these tokens only; the shared account's email/password
