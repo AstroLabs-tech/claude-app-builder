@@ -8,6 +8,7 @@ app), GitHub (one builder org per team — the ops team uses `AstroLabs-ops`), a
 
 - **set up my computer** — one-time: installs the tools + signs you in with your tokens
 - **start a new app called X** — provisions a brand-new app
+- **I already have an app** — brings an app you built elsewhere (your own GitHub, VS Code, a folder) onto the platform
 - **show me** — runs it on your computer so you can see it
 - **save a preview** — a shareable link; doesn't touch your live site
 - **make it live** — publishes it (asks you first)
