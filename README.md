@@ -25,7 +25,9 @@ In the Claude Code tab of the Claude desktop app:
 /plugin install app-builder@astrolabs
 ```
 
-Then say **set up my computer** and have ready (your admin gives you these):
+Set the model to **Opus 4.8** and turn on **Auto mode** (bottom of the Code tab) —
+setup runs far more reliably on it. Then say **set up my computer** and have ready
+(your admin gives you these):
 - your **GitHub access token**
 - your **Netlify access token**
 - the **org name** your admin gives you (ops team: `AstroLabs-ops`)
