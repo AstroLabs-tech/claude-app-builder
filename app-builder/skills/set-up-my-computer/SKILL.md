@@ -18,17 +18,32 @@ email** (so their work is credited to them, not the shared login).
 
 ## Steps
 
+**Do it for them — never hand the builder a terminal.** Run every command yourself.
+The builder's only manual moments are clicking **Install** on the macOS command-line-
+tools popup (if git is missing) or typing their Mac password into that one system
+popup — nothing else should go to a terminal. **Never use `sudo`:** keep everything in
+the home folder (that's what nvm is for); if an install asks for a password, you're on
+a system-installed Node — switch to nvm's Node instead of escalating.
+
 1. **Check what's already here:** `node --version`, `git --version`,
    `gh --version`, `netlify --version`. Only install what's missing.
 2. **Install the missing tools** (each only if absent):
-   - **Node** — via nvm (installs into the home folder, no admin password needed):
-     `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash`,
-     then load nvm and run `nvm install 20`. Make sure the nvm load lines (and
-     `~/.local/bin` on PATH, if you put the gh CLI there) land in `~/.zshrc`, and
-     **source nvm before any later or background command** — non-login/background
-     shells don't auto-load it, so `node`/`npm`/`netlify` come back "command not
-     found" otherwise.
-   - **Netlify CLI** — `npm install -g netlify-cli`.
+   - **Node (via nvm) — always activate nvm's Node, even if a `node` already exists.**
+     A pre-installed *system* Node makes global installs demand a password; nvm's Node
+     lives in the home folder and never does. Install it, then load nvm **in the same
+     shell** before using node/npm:
+     ```bash
+     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+     export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"
+     nvm install 20 && nvm alias default 20
+     ```
+     Make sure those `NVM_DIR` / `nvm.sh` lines (and `~/.local/bin` on PATH, if you put
+     the gh CLI there) are in `~/.zshrc`, and **re-source them at the top of every later
+     or background command** — non-login shells don't auto-load nvm, which is what makes
+     `node`/`npm`/`netlify` come back "command not found".
+   - **Netlify CLI** — `npm install -g netlify-cli` **using nvm's Node** (so it needs no
+     password). If it ever prompts for one, you're on the system Node — run `nvm use 20`
+     first; never `sudo`.
    - **GitHub CLI** — `brew install gh` if Homebrew is present; otherwise download
      the latest release for their OS into a user folder and add it to PATH.
    - **git** — usually already present. If it's missing on a Mac, run
@@ -61,9 +76,12 @@ email** (so their work is credited to them, not the shared login).
 5. **Set the organisation:** add `export BUILDER_GH_ORG=<org name>` to their shell
    profile and current session. The admin gives them the org name with the tokens
    (the ops team — the first team on the platform — uses `AstroLabs-ops`).
-6. **Verify:** confirm `gh auth status` shows them signed in, `netlify status`
-   shows the team, and `git config --global user.email` is their own address (not
-   the shared login). If anything failed, explain it in one plain sentence and
+6. **Verify** (re-source nvm first so this shell sees the tools): `node -v`,
+   `gh --version` and `netlify --version` all respond; `gh auth status` shows them
+   signed in; `netlify status` shows the team; and `git config --global user.email`
+   is their own address (not the shared login). A "command not found" here almost
+   always means nvm isn't loaded in *this* shell — re-source it and re-check, don't
+   reinstall. If something genuinely failed, explain it in one plain sentence and
    offer to retry just that piece.
 
 ## Reply when done
@@ -71,6 +89,11 @@ email** (so their work is credited to them, not the shared login).
 > *start a new app called …*"
 
 ## Never
+- Never tell the builder to open a terminal or paste/run commands — run everything
+  yourself; the only manual moments are the macOS install popup (a click) or one
+  system password prompt.
+- Never use `sudo` or lean on a system Node — keep installs in nvm/home so they need
+  no password.
 - Never ask for a shared email or password — only the tokens the admin issued.
 - Never set their git identity to the shared team login — always their own name
   and work email, so each person's work is credited to them.
