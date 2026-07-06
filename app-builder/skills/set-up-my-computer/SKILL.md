@@ -64,7 +64,11 @@ a system-installed Node — switch to nvm's Node instead of escalating.
        admin gave you is missing a permission (name it, e.g. `read:org`). Ask them
        to reissue it with repo, read:org, and workflow."* and stop here.
    - **Netlify:** ask for their Netlify token and save it as `NETLIFY_AUTH_TOKEN` in
-     their shell profile (e.g. append to `~/.zshrc`) and the current session.
+     their shell profile (e.g. append to `~/.zshrc`) and the current session. Then
+     **check `netlify status` shows the platform team** (`AstroLabs Tech Team`) — if it
+     shows only a *personal* team, the token is a personal Netlify account, not the
+     platform one; say so plainly and ask the admin for a token from the platform team,
+     or saving secrets and rolling back won't work on the team's sites.
 4. **Stamp their work as theirs.** Everyone on the team shares one GitHub login,
    so the *only* record of who built what is the name on each change. Ask for
    their **own name and work email** — explicitly NOT the shared team login —

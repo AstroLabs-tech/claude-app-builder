@@ -34,8 +34,8 @@ Netlify builds for the open pull request. This never touches the live site.
 
 ## Reply
 
-> "Saved! Here's your shareable preview: <url>. Anyone you send it to can open it
-> — it won't change your live site."
+> "Saved! Here's your shareable preview: <url>. It's behind your app's password, so
+> only people you give the password to can open it — and it won't change your live site."
 
 ## Never
 
