@@ -13,8 +13,9 @@ app), GitHub (one builder org per team — the ops team uses `AstroLabs-ops`), a
 - **save a preview** — a shareable link; doesn't touch your live site
 - **make it live** — publishes it (asks you first)
 - **put it back** — instant rollback
-- also: say *"make it private"* for password/team-only access, and the agent will
-  ask for a key in plain words if an app needs to connect to another service
+- also: apps are **password-protected by default** — say *"make it public"* to open one
+  to anyone, or *"make it private"* to change the password / switch to team sign-in; the
+  agent also asks for a key in plain words if an app needs another service
 
 ## Install (each builder, once)
 
@@ -41,7 +42,9 @@ a password:
    `AstroLabs-ops`). `read:org` is required — `gh auth login` rejects a token
    without it. If the enterprise enforces SSO, authorize the token for that org or
    it can't see it.
-2. **Netlify** — a personal access token from the team Netlify account.
+2. **Netlify** — a personal access token from the **platform Netlify team account**
+   (the team that owns the sites, e.g. `AstroLabs Tech Team`) — not a personal Netlify
+   account, or storing secrets and rollback will fail on the team's sites.
 
 Builders authenticate with these tokens only; the shared account's email/password
 never leaves your hands. Offboard a builder by revoking their tokens.

@@ -71,7 +71,10 @@ stop and explain in plain words.
    Netlify's config, then `netlify init`** (Create & configure a new project · the team
    · a unique name). See the **new-app** skill for the seed-token recipe and the org's
    OAuth-App-restriction caveat (the browser auth path is blocked — always the seeded
-   token). The database provisions on the first deploy.
+   token). The database provisions on the first deploy. Then **protect it by default** —
+   set the site's Netlify password protection (see **make-it-private**) so the live site
+   *and* its previews need a password from the first deploy, and give the builder the
+   password. Public is an explicit opt-out.
 
 7. **Confirm and hand back.** Get it running ("show me"), then report in plain words what
    you adopted and what — if anything — you changed.
