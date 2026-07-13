@@ -26,7 +26,7 @@ stop and explain in plain words.
    code in one folder on this machine.
 
 2. **Assess it and say it back in one sentence** (*"Looks like a Next.js app that stores
-   data with Prisma"*). Note three things:
+   data with Prisma"*). Note a few things:
    - **Framework:** Next.js (ideal — matches the platform) · another framework · plain
      static HTML.
    - **Data layer:** none · Drizzle (matches) · Prisma · something else.
@@ -35,6 +35,9 @@ stop and explain in plain words.
    - *Static HTML that needs to store data is a special case:* you can't bolt a database
      onto a static page. Treat it like **new-app** — start from the template and carry
      their content and look across — and tell them plainly that's what you're doing.
+   - **Already live?** If it's already deployed on a Netlify link they want to keep (e.g.
+     one already shared with the team), note it — in step 6 you'll reuse that exact site,
+     not create a new one.
 
 3. **Create the platform home — a private repo in the team org** (`$BUILDER_GH_ORG`),
    never their personal account:
@@ -67,14 +70,21 @@ stop and explain in plain words.
    - Either way: **never ship connected to a local/personal database.** Recreate their
      schema on the provisioned DB; if they have real data to bring across, ask first.
 
-6. **Connect Netlify exactly as new-app does** — **seed the team GitHub token into
-   Netlify's config, then `netlify init`** (Create & configure a new project · the team
-   · a unique name). See the **new-app** skill for the seed-token recipe and the org's
-   OAuth-App-restriction caveat (the browser auth path is blocked — always the seeded
-   token). The database provisions on the first deploy. Then **protect it by default** —
-   set the site's Netlify password protection (see **make-it-private**) so the live site
-   *and* its previews need a password from the first deploy, and give the builder the
-   password. Public is an explicit opt-out.
+6. **Connect Netlify.** Seed the team GitHub token into Netlify's config first (see the
+   **new-app** skill for the seed-token recipe + the org's OAuth-App-restriction caveat —
+   always the seeded token, never the browser path), then run `netlify init`. Two cases:
+   - **Already deployed on a Netlify link they want to keep** (common — e.g. a dashboard
+     link already shared with the team): choose **"Connect to an existing project"** (the
+     default top menu item — do *not* move down) and pick their existing site. This wires
+     the repo's CI/CD to that same site, so the **URL is preserved — no duplicate.** The
+     old version stays live until they say "make it live"; previews get their own links.
+     (Requires the existing site to be on the platform Netlify team — see SETUP.md.)
+   - **No existing site (or a new URL is fine):** choose **"Create & configure a new
+     project"** (down one), the team, a unique name — as in new-app.
+   The database provisions on the first deploy. Then **protect it by default** — set the
+   site's Netlify password protection (see **make-it-private**) so the live site *and* its
+   previews need a password, and give the builder the password. Public is an explicit
+   opt-out.
 
 7. **Confirm and hand back.** Get it running ("show me"), then report in plain words what
    you adopted and what — if anything — you changed.
