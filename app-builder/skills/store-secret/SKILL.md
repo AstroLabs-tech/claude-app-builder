@@ -1,13 +1,15 @@
 ---
 name: store-secret
-description: Internal helper — use when the app needs an API key, token, or webhook URL from the builder to talk to another service. This is NOT a phrase the builder says; trigger it whenever you're building a feature that needs a credential. Collects the value in plain language and stores it safely, never showing jargon.
+description: Internal helper — use when the app (or its build / scheduled steps) needs an API key, token, webhook URL, or a deploy/CI token. This is NOT a phrase the builder says; trigger it whenever you're building a feature or pipeline step that needs a credential. Collects the value in plain language and stores it safely (never in a local file or the code), never showing jargon.
 ---
 
 # store-secret
 
 When a feature needs a credential (a webhook URL, an API key, a token), get it
 from the builder in plain words and store it on the app's Netlify site — never
-in the code.
+in the code. **This includes deploy/CI and build-step tokens** (a token a scheduled
+refresh or build step needs, a Netlify deploy token, etc.) — those belong here too, read
+from the environment at build/run time, **never left in a local file or a deploy script.**
 
 ## Steps
 
@@ -28,6 +30,7 @@ in the code.
 
 ## Never
 
-- Never write the value into a file, commit it, or print it back to the builder.
+- Never write the value into a file, commit it, or print it back to the builder — that
+  includes deploy/CI tokens (they go here via `netlify env:set`, never a local file or script).
 - Never expose it to the browser — only read it in server code (`app/api/...`).
 - One app's keys never touch another app (per-site scope).
