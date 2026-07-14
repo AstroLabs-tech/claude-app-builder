@@ -1,6 +1,6 @@
 ---
 name: adopt-existing-app
-description: Bring an app the builder already started — built elsewhere (their own GitHub, VS Code, a local folder, even a single HTML file) — onto the platform. Use when they say "I already have an app", "continue the project I built before", "I built this in VS Code / on my own GitHub", "import/bring in my project", "pick up from here", "I've been working on this — can you take it over", or point you at an existing repo or folder. For a brand-new app, use new-app instead.
+description: Bring an app the builder already started — built elsewhere (their own GitHub, VS Code, a local folder, even a single HTML file) — onto the platform. Use when they say "I already have an app", "continue the project I built before", "I built this in VS Code / on my own GitHub", "import/bring in my project", "pick up from here", "I've been working on this — can you take it over", or point you at an existing repo or folder — or hand you a built file/link and ask to publish or update it (e.g. "here's an index.html, make it live", "I have a dashboard already deployed", "keep it on the same link", "I put this on Netlify myself"). For a brand-new app, use new-app instead.
 ---
 
 # adopt-existing-app
@@ -104,4 +104,8 @@ stop and explain in plain words.
   the wiring around their working code, and ask when there's a real choice.
 - Never use `netlify init`'s browser GitHub authorization (see new-app) — always the
   seeded team token.
+- Never solve "publish/update this existing thing" with a hand-rolled manual deploy (a
+  raw Netlify API call, a local script, a one-off upload) — this org ships apps through
+  app-builder. Bring it onto the platform (adopt) and publish via make-it-live, so
+  previews, rollback, and the live version stay authoritative.
 - Never say "repo", "org", "ORM", "migration", or "deploy" to the builder.
