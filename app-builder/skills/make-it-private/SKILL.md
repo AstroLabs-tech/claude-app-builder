@@ -15,14 +15,16 @@ sign-in, or — only if they explicitly ask — make the app public.
    the team can open it), or **public** (anyone — a deliberate opt-out).
 2. Apply it on the site through the **Netlify API/CLI**, never by asking them to log in:
    - **Password:** set the site's Visitor-access password (Netlify's site-level
-     password protection, Pro plan). **If the builder didn't choose their own password,
-     generate one by default** — a Chrome-style 15-character string (upper + lower +
-     digits; look-alike chars `0/O`/`1/l/I` excluded so it survives being read aloud),
-     hyphen-chunked into three groups of five for easy reading (the loop redraws until
-     the 15 characters include at least one upper, one lower, and one digit):
+     password protection, Pro plan). If the builder chose a specific password, use that
+     **exact** value. **Otherwise generate a strong one by default** — a Chrome-style
+     15-character string (upper + lower + digits; look-alike chars `0/O`/`1/l/I` excluded
+     so it survives being read aloud), hyphen-chunked into three groups of five for easy
+     reading (the loop redraws until the 15 characters include at least one upper, one
+     lower, and one digit):
      `while :; do p=$(LC_ALL=C tr -dc 'A-HJ-NP-Za-km-z2-9' </dev/urandom | head -c 15); [[ $p =~ [A-Z] && $p =~ [a-z] && $p =~ [2-9] ]] && break; done; echo "${p:0:5}-${p:5:5}-${p:10:5}"`
-     Set that exact value — hyphens included — as the password, then give it to them once,
-     in plain words, and tell them to save it: it's the key to their app and won't be shown again.
+     Set that exact value on the site (hyphens included), then give the builder the
+     password once, in plain words — say clearly whether you generated it — and tell them
+     to save it: it's the key to their app and won't be shown again.
    - **Team sign-in:** turn on the matching Netlify access control (plan-dependent — see SETUP.md).
    - **Public:** remove the site password — only when they've clearly asked to open it to anyone.
 3. Protection is site-level, so it covers the live site *and* its shareable previews.
@@ -34,6 +36,10 @@ sign-in, or — only if they explicitly ask — make the app public.
 
 ## Notes & never
 
+- **Never let the password you set differ from the one you tell the builder.** Whether
+  they chose it or you generated it, the value set on the site and the value you read back
+  must be identical — otherwise they think they set one password and it's really another,
+  and they lock themselves out. If you generated it, say so.
 - This changes who can *open* the app; the link itself stays the same.
 - **Making an app public is a deliberate choice** — confirm they mean it, especially if
   it holds names, client, or compliance data.
