@@ -73,9 +73,10 @@ connected to its own Netlify site. Assumes the one-time platform setup is done
    with `netlify status`.
 5. **Protect it by default.** Apps are password-protected out of the box (sensitive
    data / PDPL) — so the live site *and* every shareable preview need a password from
-   the very first deploy. Right after the site connects, set its Netlify password
-   protection (see the **make-it-private** skill) and give the builder the password in
-   plain words. If they later want it open to anyone, they can say "make it public."
+   the very first deploy. Right after the site connects, **generate a password** and set
+   the Netlify password protection (see the **make-it-private** skill), then give the
+   builder that password in plain words and tell them to save it. If they later want it
+   open to anyone, they can say "make it public."
 6. Confirm the connection is live (the first preview can be triggered by the first
    "save a preview").
 
