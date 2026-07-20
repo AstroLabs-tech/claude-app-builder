@@ -27,7 +27,9 @@ sign-in, or — only if they explicitly ask — make the app public.
      to save it: it's the key to their app and won't be shown again.
    - **Team sign-in:** turn on the matching Netlify access control (plan-dependent — see SETUP.md).
    - **Public:** remove the site password — only when they've clearly asked to open it to anyone.
-3. Protection is site-level, so it covers the live site *and* its shareable previews.
+3. **Scope protection to "All deploys," never "Non-production deploys only"** — the latter
+   guards only previews/branch deploys and leaves the **live site open**. "All deploys"
+   covers the live site *and* its shareable previews in one setting.
 
 ## Reply
 
