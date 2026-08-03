@@ -31,16 +31,25 @@ listed in the site's `build_settings.allowed_branches`. Read the real list — n
 guess from names — and **drop the production line** (`build_settings.repo_branch`,
 currently `main`): that one is the main app itself, not a module.
 
+**Fail closed** — a failed API call returns nothing, which looks exactly like "this hub
+has no modules". Never act on an unchecked read: you'd offer to create a module that
+already exists, or tell a builder theirs is gone.
+
 ```bash
-netlify api getSite --data '{"site_id":"astrolabs-cpr.netlify.app"}' \
-  | jq -r '.build_settings as $b | $b.allowed_branches[] | select(. != $b.repo_branch)'
+SITE=astrolabs-cpr.netlify.app
+S=$(netlify api getSite --data "{\"site_id\":\"$SITE\"}") \
+  || { echo "couldn't reach the site — stop here, don't guess" >&2; exit 1; }
+jq -e '.build_settings.repo_branch and
+       (.build_settings.allowed_branches | type == "array" and length > 0)' <<<"$S" >/dev/null \
+  || { echo "site settings look wrong — stop here, don't guess" >&2; exit 1; }
+jq -r '.build_settings as $b | $b.allowed_branches[] | select(. != $b.repo_branch)' <<<"$S"
 ```
 
 Anything not in that list is ordinary in-progress work, not a module. Its link is a
 temporary one tied to an open change, so don't present it as a module.
 
-Links: a module's is `https://<module>--astrolabs-cpr.netlify.app`; the **main app**
-is `https://astrolabs-cpr.netlify.app` (never `main--…`). That pattern only holds for
+A module's link is `https://<module>--astrolabs-cpr.netlify.app`; the **main app** is
+`https://astrolabs-cpr.netlify.app` (never `main--…`). That pattern only holds for
 plain lowercase-and-hyphen names, so keep module names to that shape — and open the
 link once to check it resolves before handing it to a builder.
 
@@ -65,18 +74,30 @@ link once to check it resolves before handing it to a builder.
    SITE=astrolabs-cpr.netlify.app; MOD=<module>
    for attempt in 1 2 3; do
      CUR=$(netlify api getSite --data "{\"site_id\":\"$SITE\"}" \
-       | jq -c '.build_settings.allowed_branches')
+       | jq -c '.build_settings.allowed_branches // empty')
+     [ -n "$CUR" ] || { echo "couldn't read the link list (try $attempt)" >&2; continue; }
      # append only if absent — keeps the existing order untouched
-     NEW=$(jq -cn --argjson cur "$CUR" --arg b "$MOD" \
+     WANT=$(jq -cn --argjson cur "$CUR" --arg b "$MOD" \
        '$cur + (if $cur | index($b) then [] else [$b] end)')
      netlify api updateSite \
-       --data "{\"site_id\":\"$SITE\",\"build_settings\":{\"allowed_branches\":$NEW}}" >/dev/null
-     netlify api getSite --data "{\"site_id\":\"$SITE\"}" \
-       | jq -e --arg b "$MOD" '.build_settings.allowed_branches | index($b)' >/dev/null && break
+       --data "{\"site_id\":\"$SITE\",\"build_settings\":{\"allowed_branches\":$WANT}}" >/dev/null
+     GOT=$(netlify api getSite --data "{\"site_id\":\"$SITE\"}" \
+       | jq -c '.build_settings.allowed_branches // empty')
+     # every name we expected must still be there — a simultaneous setup can drop one
+     jq -en --argjson w "$WANT" --argjson g "${GOT:-[]}" '($w - $g) | length == 0' >/dev/null \
+       && { echo "link list confirmed: $GOT"; break; }
+     [ "$attempt" = 3 ] && { echo "link list not updated after 3 tries" >&2; exit 1; }
    done
    ```
-   If it still isn't on the list after three tries, stop and say so plainly — don't
-   promise a link that won't exist.
+   The check is on the **whole** expected list, not just this module — if two people set
+   up modules at the same moment, one write can drop the other's, and this re-adds it.
+   If it still fails after three tries, stop and say so plainly — don't promise a link
+   that won't exist.
+
+   *(No cross-machine lock is possible here — builders work on their own laptops with no
+   shared coordination point, and Netlify's API has no conditional update for this field.
+   Detect-and-repair is the honest ceiling, and module creation is rare enough that it's
+   proportionate.)*
 4. **Bringing in an app they already have?** If what they want as a module already
    exists as its own app, this is a **move, not a rebuild** — do not start from
    scratch and do not create a separate repo or site for it (that's what
