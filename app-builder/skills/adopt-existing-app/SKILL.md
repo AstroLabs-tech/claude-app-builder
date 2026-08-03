@@ -17,9 +17,17 @@ real judgment call (a stack you can't cleanly fit, data sitting in a private pla
 stop and explain in plain words.
 
 > **Not for the Ops Hub.** If the app is meant to become a **part of the Ops Hub**
-> rather than an app of its own — they say "as a module", name a hub part, or point at
-> `astrolabs-cpr` — use **work-on-a-module** instead. This skill would give it its own
-> separate repo and site, which is the opposite of what they asked for.
+> rather than an app of its own, use **work-on-a-module** instead — this skill would
+> give it its own separate repo and site, the opposite of what they asked for.
+>
+> Wording like "as a module" is **not enough on its own** to send it there, and
+> guessing wrong would drop their code into the shared hub the whole ops team uses. So
+> when there's any hint of it — "as a module", the name of a hub part (onboarding,
+> community hub, licensing, portfolio), or the Ops Hub itself — **ask, in their words,
+> and wait for an answer**: *"Do you want this to become part of the Ops Hub — the app
+> with Business Growth, KSA Community and Onboarding in it — or to stay its own
+> separate app with its own link?"* Only route to work-on-a-module once they've picked
+> the hub; anything else, carry on here.
 
 ## Steps
 

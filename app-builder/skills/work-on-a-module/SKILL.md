@@ -89,15 +89,18 @@ link once to check it resolves before handing it to a builder.
      [ "$attempt" = 3 ] && { echo "link list not updated after 3 tries" >&2; exit 1; }
    done
    ```
-   The check is on the **whole** expected list, not just this module — if two people set
-   up modules at the same moment, one write can drop the other's, and this re-adds it.
-   If it still fails after three tries, stop and say so plainly — don't promise a link
-   that won't exist.
+   The check is on the **whole** expected list, not just this module, so a write that
+   dropped someone else's entry gets caught and re-added. If it still fails after three
+   tries, stop and say so plainly — don't promise a link that won't exist.
 
-   *(No cross-machine lock is possible here — builders work on their own laptops with no
-   shared coordination point, and Netlify's API has no conditional update for this field.
-   Detect-and-repair is the honest ceiling, and module creation is rare enough that it's
-   proportionate.)*
+   **This is best-effort, not a guarantee.** The check only proves the list was right at
+   the moment it was read: another builder setting up a module a second later can still
+   overwrite it from a stale copy, and nothing here prevents that. No cross-machine lock
+   is possible — builders work on their own laptops with no shared coordination point,
+   and Netlify's API has no conditional update for this field. So if a module's link
+   ever stops working, suspect this first, re-read the list, and re-add the missing name
+   rather than assuming the module was never set up. Don't tell a builder their link is
+   permanently guaranteed.
 4. **Bringing in an app they already have?** If what they want as a module already
    exists as its own app, this is a **move, not a rebuild** — do not start from
    scratch and do not create a separate repo or site for it (that's what

@@ -23,6 +23,12 @@ Netlify builds for the open pull request. This never touches the live site.
 >   AstroLabs Google sign-in inside the app. Say: *"Saved! Here's your module's link:
 >   <url>. Anyone at AstroLabs can open it with their work Google account, and it
 >   won't change the main app."* Never mention a password, and never ask them for one.
+>   **Confirm that's still true before you say it** — same fail-closed check as
+>   make-it-live's Ops Hub note. If a site password has appeared, don't hand over the
+>   link describing sign-in that isn't what's guarding it; stop and report instead.
+> - **Say what the link isn't.** It's a separate copy of the *pages*, not of the data —
+>   anything they save through it goes into the same records the live app uses. Never
+>   call it a safe place to experiment with data.
 
 ## Steps
 

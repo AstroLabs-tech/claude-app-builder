@@ -15,14 +15,18 @@ Publish the previewed version to the live site. This is the one action that
 > https://astrolabs-cpr.netlify.app, which the whole team uses"*); apply the
 > **stored-data rule** before publishing if anything under `db/` changed; and **skip
 > step 4** — the hub is protected by AstroLabs Google sign-in inside the app, so it
-> must never get a site password. Don't just assume that's still true: check that no
-> site password is set before skipping, and if one has appeared, stop and report it
-> rather than publishing into a gate nobody holds the key to (read the flag only —
-> never echo the value):
+> must never get a site password. Don't just assume that's still true: check before
+> skipping, and **fail closed** — only carry on when a well-formed reply positively
+> shows no password. An unreachable or half-read site must stop you, not wave you
+> through. Read whether one is set, never the value itself:
 > ```bash
-> netlify api getSite --data '{"site_id":"astrolabs-cpr.netlify.app"}' \
->   | jq -e '.password == null' >/dev/null && echo "no site password — skip step 4" \
->   || echo "a site password IS set — stop and tell Piotr before publishing"
+> S=$(netlify api getSite --data '{"site_id":"astrolabs-cpr.netlify.app"}') \
+>   || { echo "couldn't reach the site — stop, don't publish" >&2; exit 1; }
+> # a real site reply has these three; Netlify OMITS `password` when none is set,
+> # so treat absent and null alike — but only inside a reply we know is complete
+> jq -e 'has("id") and has("name") and has("build_settings")
+>        and ((.password // null) == null)' <<<"$S" >/dev/null \
+>   || { echo "can't confirm the hub is unprotected — stop and tell Piotr" >&2; exit 1; }
 > ```
 > The closing reply changes too: *"Done —
 > your <module> changes are in the main app now at https://astrolabs-cpr.netlify.app.

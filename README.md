@@ -15,10 +15,12 @@ app), GitHub (one builder org per team — the ops team uses `AstroLabs-ops`), a
 - **put it back** — instant rollback
 - **"I'm updating the onboarding module"** / **"which modules are there"** — for the
   **Ops Hub**, which is one app built from several parts: work on your own part with
-  its own link, then say *"make it live"* to add it into the main app. The Ops Hub is
-  the one app with no site password — it uses AstroLabs Google sign-in inside the app
-  instead, and its parts share one database. Other apps are single apps and don't need
-  this.
+  its own link, then say *"make it live"* to add it into the main app. Two things to
+  know: your module link is a separate copy of the *pages*, **not of the data** — every
+  part shares one database, so anything you save through it goes into the records the
+  live app uses, and it isn't a safe place to try things out with real records. And the
+  Ops Hub is the one app with no site password — it uses AstroLabs Google sign-in inside
+  the app instead. Other apps are single apps and don't need any of this.
 - also: apps are **password-protected by default** — say *"make it public"* to open one
   to anyone, or *"make it private"* to change the password / switch to team sign-in; the
   agent also asks for a key in plain words if an app needs another service
