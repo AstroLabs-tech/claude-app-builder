@@ -8,6 +8,22 @@ description: Publish a private, shareable preview of the current app without tou
 Commit the current work, push it, and hand back the shareable preview link that
 Netlify builds for the open pull request. This never touches the live site.
 
+> **Ops Hub exception** (`AstroLabs-ops/astrolabs-cpr`). The builder works on a
+> *module*, which already has its own permanent link — see **work-on-a-module**.
+> Every other app follows the steps below unchanged. On the hub:
+>
+> - **Step 1 applies per module, not per app.** Separate people working separate
+>   modules at once is the whole point — only flag a clash on the **same** module.
+> - **Skip steps 3–5.** Do **not** create or switch to a `preview` line (that would
+>   take them off their own module) and do **not** open a pull request — publishing
+>   does that later. Push the module's working line, wait for its build to succeed,
+>   then hand back `https://<module>--astrolabs-cpr.netlify.app`. Step 6 still
+>   applies: never share the link if the build failed.
+> - **The reply is different.** The hub has no site password — it's gated by
+>   AstroLabs Google sign-in inside the app. Say: *"Saved! Here's your module's link:
+>   <url>. Anyone at AstroLabs can open it with their work Google account, and it
+>   won't change the main app."* Never mention a password, and never ask them for one.
+
 ## Steps
 
 1. **Check for someone else's work in progress.** If the app already has an open

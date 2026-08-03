@@ -13,6 +13,12 @@ app), GitHub (one builder org per team — the ops team uses `AstroLabs-ops`), a
 - **save a preview** — a shareable link; doesn't touch your live site
 - **make it live** — publishes it (asks you first)
 - **put it back** — instant rollback
+- **"I'm updating the onboarding module"** / **"which modules are there"** — for the
+  **Ops Hub**, which is one app built from several parts: work on your own part with
+  its own link, then say *"make it live"* to add it into the main app. The Ops Hub is
+  the one app with no site password — it uses AstroLabs Google sign-in inside the app
+  instead, and its parts share one database. Other apps are single apps and don't need
+  this.
 - also: apps are **password-protected by default** — say *"make it public"* to open one
   to anyone, or *"make it private"* to change the password / switch to team sign-in; the
   agent also asks for a key in plain words if an app needs another service
