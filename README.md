@@ -34,6 +34,11 @@ In the Claude Code tab of the Claude desktop app:
 /plugin install app-builder@astrolabs
 ```
 
+To keep getting improvements, open `/plugin`, go to **Marketplaces**, select
+**astrolabs** and choose **Enable auto-update** (once). Updates then download in the
+background while you work and apply the next time you open the Code tab; pick
+**Update marketplace** there to get one right away.
+
 Set the model to **Opus 4.8** and turn on **Auto mode** (bottom of the Code tab) —
 setup runs far more reliably on it. Then say **set up my computer** and have ready
 (your admin gives you these):
