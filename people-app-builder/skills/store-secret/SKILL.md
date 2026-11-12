@@ -16,8 +16,11 @@ from the environment at build/run time, **never left in a local file or a deploy
 1. Ask for it plainly: *"To connect to Slack I need your webhook link — paste it
    here."* Don't say "environment variable", "secret", or "API key" unless they
    do.
-2. Store it on the site, scoped to this app: `netlify env:set <NAME> "<value>"`
-   (encrypted, per-site).
+2. Store it on the site, scoped to this app (encrypted, per-site):
+   `netlify env:set <NAME> '<value>' >/dev/null && echo stored`
+   Put the value in **single quotes** (write any `'` inside it as `'\''`) so the shell
+   never expands `$` or backticks in it, and send the command's output to `/dev/null`
+   — the CLI echoes the value back otherwise.
    If the value differs between previews and the live app (a test key vs a live
    key), set each with `--context`: `dev deploy-preview branch-deploy` for the test
    value, `production` for the live one.

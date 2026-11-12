@@ -28,8 +28,11 @@ Publish the previewed version to the live app. This is the one action that
 3. **Check it's safe to publish.** There must be an open preview pull request and
    its checks must be green. Never publish a change whose preview didn't build.
 4. **Publish.** Merge the preview pull request into `main`. Netlify deploys `main`
-   to the live app automatically — wait for that production deploy to finish.
-   Any forward-only data change applies as part of this step.
+   to the live app automatically — wait for that production deploy to finish and
+   **confirm it succeeded** (its state is `ready` for the merged version). Any
+   forward-only data change applies as part of this step. If the deploy failed,
+   don't say it's live: the previous version is still up — explain the reason in one
+   plain sentence and offer to fix it.
 5. **Make sure someone can get in.** If the live list is empty (first time live),
    approve the builder's own work email with **who-can-get-in**, and tell them they
    can approve others the same way.

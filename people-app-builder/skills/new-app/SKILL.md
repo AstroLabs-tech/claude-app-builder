@@ -70,8 +70,8 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    with pk_test_ and sk_test_."*). Store them for local runs and previews only:
 
    ```bash
-   netlify env:set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY "<pk_test_…>" --context dev deploy-preview branch-deploy
-   netlify env:set CLERK_SECRET_KEY "<sk_test_…>" --context dev deploy-preview branch-deploy
+   netlify env:set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY '<pk_test_…>' --context dev deploy-preview branch-deploy >/dev/null
+   netlify env:set CLERK_SECRET_KEY '<sk_test_…>' --context dev deploy-preview branch-deploy >/dev/null
    ```
 
    The **live** codes (`pk_live_` / `sk_live_`) come later from the admin, once the

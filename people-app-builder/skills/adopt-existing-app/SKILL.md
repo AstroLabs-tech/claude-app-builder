@@ -53,15 +53,18 @@ sign-in for approved people, its data in the platform's managed database, and
      **store-secret**.
    Show each slice with "show me" before starting the next.
 
-4. **An app that already runs elsewhere (not a prototype) → bring it over.** Create
-   `gh repo create "AstroLabs-people/<slug>" --private`, point the folder at it over
-   HTTPS (rename any existing remote to `old`), push their code with its history, then
-   graft the platform wiring from `AstroLabs-people/app-starter` around their code:
+4. **An app that already runs elsewhere (not a prototype) → bring it over.** First,
+   **locally**, graft the platform wiring from `AstroLabs-people/app-starter` around
+   their code:
    `netlify.toml`, `.github/workflows/checks.yml`, `.nvmrc`, `.gitignore`, `CLAUDE.md`,
    `scripts/bootstrap.sh`, and the sign-in (`middleware.ts`, `lib/viewer.ts`,
    `app/sign-in`, `app/sign-up`, the provider in the root layout). Keep their working
-   features; fix config, not features. Then check its who-sees-what rules run on the
-   server, as in step 3. Connect Netlify and sign-in as in **new-app** steps 4–5.
+   features; fix config, not features. Check its who-sees-what rules run on the
+   server, as in step 3, and that it builds. **Only then** create
+   `gh repo create "AstroLabs-people/<slug>" --private`, point the folder at it over
+   HTTPS (rename any existing remote to `old`), and push — so no version without
+   sign-in ever reaches GitHub or Netlify. Then connect Netlify and sign-in as in
+   **new-app** steps 4–5.
 
 5. **Data:** never ship pointing at a personal database or a personal copy of a
    spreadsheet. Real employee data comes in only from the source the builder confirms

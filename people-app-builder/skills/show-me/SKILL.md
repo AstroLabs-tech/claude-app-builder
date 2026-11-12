@@ -25,10 +25,9 @@ Start the app on the builder's machine and hand back the private link.
      sign-in off.
    - Only if they specifically need saved data to work locally, use
      `npm run dev:netlify` instead (it brings the codes in by itself).
-3. Wait until it is actually serving (the server reports ready / responds on
-   :3000) before replying — don't hand over a link that isn't up yet.
-4. If something else is already on port 3000, use the port Next picks instead and
-   give them that link.
+3. Read the address **this** server prints (`Local: http://localhost:<port>`) —
+   if 3000 was taken, Next picks another port — and wait until that address responds
+   before replying. Never treat something else answering on 3000 as this app.
 
 ## Reply
 

@@ -27,7 +27,7 @@ the home folder (that's what nvm is for); if an install asks for a password, you
 a system-installed Node — switch to nvm's Node instead of escalating.
 
 1. **Check what's already here:** `node --version`, `git --version`,
-   `gh --version`, `netlify --version`. Only install what's missing.
+   `gh --version`, `netlify --version`, `jq --version`. Only install what's missing.
 2. **Install the missing tools** (each only if absent):
    - **Node (via nvm) — always activate nvm's Node, even if a `node` already exists.**
      A pre-installed *system* Node makes global installs demand a password; nvm's Node
@@ -47,6 +47,8 @@ a system-installed Node — switch to nvm's Node instead of escalating.
      first; never `sudo`.
    - **GitHub CLI** — `brew install gh` if Homebrew is present; otherwise download
      the latest release for their OS into a user folder and add it to PATH.
+   - **jq** — preinstalled on recent macOS; if missing, `brew install jq` (Homebrew)
+     or download the release binary into a user folder on PATH.
    - **git** — usually already present. If it's missing on a Mac, run
      `xcode-select --install`, tell them *"a system window will pop up — click
      Install,"* and wait for them to confirm. This is the one step that may need
@@ -79,7 +81,7 @@ a system-installed Node — switch to nvm's Node instead of escalating.
    `git config --global user.email "<their own work email>"`. It flows into every
    app they create, so they're never asked again.
 5. **Verify** (re-source nvm first so this shell sees the tools): `node -v`,
-   `gh --version` and `netlify --version` all respond; `gh auth status` shows them
+   `gh --version`, `netlify --version` and `jq --version` all respond; `gh auth status` shows them
    signed in; `netlify status` shows the People team; and `git config --global user.email`
    is their own address (not the shared login). A "command not found" here almost
    always means nvm isn't loaded in *this* shell — re-source it and re-check, don't

@@ -40,11 +40,14 @@ API — the builder never opens a dashboard.
 
 3. **Do it:**
    - **List:**
-     `curl -s "${AUTH[@]}" "$API/allowlist_identifiers?paginated=true&limit=500" | jq -r '(.data // .)[] | .identifier'`
+     `curl -s "${AUTH[@]}" "$API/allowlist_identifiers?paginated=true&limit=500&offset=0" | jq -r '(.data // .)[] | .identifier'`
+     If `total_count` is more than you've read, repeat with `offset=500`, `1000`, …
+     until you have every entry — removal must see the whole list.
    - **Approve** (per email):
      `curl -s "${AUTH[@]}" -X POST "$API/allowlist_identifiers" -d "$(jq -n --arg e "$EMAIL" '{identifier:$e, notify:false}')"`
      If that person was removed before, also lift the block on their account:
-     find them with `curl -s "${AUTH[@]}" "$API/users?email_address=$EMAIL" | jq -r '.[].id'`
+     find them with `curl -s -G "${AUTH[@]}" "$API/users" --data-urlencode "email_address=$EMAIL" | jq -r '.[].id'`
+     (always URL-encode the email — a `+` in an address otherwise turns into a space)
      and `POST $API/users/<id>/unban` for each.
    - **Remove** (per email, on both lists): find the entry id
      (`… | jq -r --arg e "$EMAIL" '(.data // .)[] | select(.identifier==$e) | .id'`),
@@ -52,9 +55,16 @@ API — the builder never opens a dashboard.
      made — find it by email as above and `POST $API/users/<id>/ban` for each.
      The list only controls who can **create** an account, so removing someone
      without blocking their account would leave them able to sign in.
+     If the list approves a **whole domain** that covers this person, deleting their
+     own entry isn't enough — tell the builder plainly that everyone at that domain is
+     approved and offer to replace it with a list of named people first.
    An "already exists" reply on approve is fine (they're already approved).
 
-4. **Check it worked** by listing again, and report in plain words.
+4. **Check it worked.** Check the HTTP status of every add, delete, ban and unban
+   (`curl -s -o /dev/null -w '%{http_code}'`); then list again, and for removals fetch
+   each account (`GET $API/users/<id>`) and confirm `"banned": true` (for re-approvals,
+   `false`). Only report success for what you verified; name anyone that didn't go
+   through.
 
 ## Reply
 
