@@ -41,7 +41,8 @@ permission — click Yes"* before each one and wait.
    Git Bash). Then set `git config --global core.autocrlf false`.
 2. **Check what's already here** (in Git Bash): `node --version`, `gh --version`,
    `netlify --version`, `jq --version`. Install only what's missing:
-   - **Node:** `winget install -e --id OpenJS.NodeJS.LTS …`
+   - **Node:** `winget install -e --id OpenJS.NodeJS.LTS …` — then run the PATH export
+     from step 3 **right away**, before anything that needs `npm`.
    - **GitHub CLI:** `winget install -e --id GitHub.cli …`
    - **jq:** `winget install -e --id jqlang.jq …`
    - **Netlify CLI:** `npm install -g netlify-cli` (installs into the user's own folder;
@@ -74,13 +75,14 @@ permission — click Yes"* before each one and wait.
      ```bash
      curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
      export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"
-     nvm install 20 && nvm alias default 20
+     nvm install 22 && nvm alias default 22
      ```
      Make sure the `NVM_DIR` / `nvm.sh` lines are in `~/.zshrc`, and **re-source them at
      the top of every later or background command** — non-login shells don't auto-load
      nvm, which is what makes `node`/`npm`/`netlify` come back "command not found".
    - **Netlify CLI** — `npm install -g netlify-cli` **using nvm's Node**. If it ever
-     prompts for a password, you're on the system Node — run `nvm use 20` first.
+     prompts for a password, you're on the system Node — run `nvm use 22` first.
+     (The Netlify CLI needs Node 22.13 or newer.)
    - **GitHub CLI** — `brew install gh` if Homebrew is present; otherwise download the
      latest release into a user folder and add it to PATH.
    - **jq** — preinstalled on recent macOS; if missing, `brew install jq` or the release
