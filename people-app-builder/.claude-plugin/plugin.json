@@ -1,0 +1,5 @@
+{
+  "name": "people-app-builder",
+  "description": "People-team app builder: build and ship People apps with a few plain phrases — sign-in for approved people only, its own GitHub org and Netlify team, no code, git or terminal.",
+  "author": { "name": "AstroLabs" }
+}
