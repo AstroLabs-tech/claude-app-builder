@@ -83,6 +83,9 @@ data. It is the same flow with stricter defaults and its own isolated home:
 - **Prototypes:** *"I have a prototype"* rebuilds a Claude artifact on the People
   template and moves its who-sees-what rules to the server (**adopt-existing-app**).
 - No Ops Hub modules (`work-on-a-module`), no `make-it-private`.
+- **Windows and Mac.** On Windows the skills run in Git Bash (set-up installs Git for
+  Windows and the tools with winget), and new apps connect to Netlify through scripted
+  API calls instead of `netlify init`'s menus.
 
 Install (People builders, once), in the Claude Code tab:
 

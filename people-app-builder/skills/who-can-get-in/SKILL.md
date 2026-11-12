@@ -21,6 +21,9 @@ API — the builder never opens a dashboard.
 
 ## Steps
 
+On Windows, end every `jq -r` whose output you store or loop over with
+`| tr -d '\r'` — jq there adds an invisible `\r` to each line.
+
 1. **Read the admin code for that list from the app's site, without printing it:**
    ```bash
    CTX=production   # live list; use CTX=dev for the test list

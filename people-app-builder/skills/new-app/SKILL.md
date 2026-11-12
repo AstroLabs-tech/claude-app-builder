@@ -26,44 +26,46 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    then `git clone "https://github.com/AstroLabs-people/<slug>.git" && cd <slug>`.
    (If the clone races the template copy and lands empty, just retry it.)
 3. **Set up the machine for this app:** `bash scripts/bootstrap.sh`.
-4. **Connect the Netlify site** with `netlify init` — **required**: it mints the
-   GitHub→Netlify webhook that makes previews and publishing fire. (The API can't
-   replace it — `createSite` + a deploy key gives manual builds but **not** the
-   webhook.)
-
-   **Admin prerequisite (once per org, not a builder step):** the Netlify GitHub
-   App must already be installed on `AstroLabs-people`. If it isn't, `netlify init`
-   404s on the deploy key / *"does the repository exist"* — say plainly *"Your admin
-   needs to connect Netlify to the team's GitHub once — I can't do that part,"*
-   never a raw error.
-
-   **First, seed the team GitHub token into Netlify's config — then `netlify init`
-   needs no GitHub prompt at all.** `netlify init`'s browser authorization grabs the
-   builder's personal browser session (wrong account) and is blocked by org OAuth
-   restrictions; a seeded direct token sidesteps both:
+4. **Connect the Netlify site — scripted, no prompts** (works the same on Windows
+   and Mac). These are exactly the calls `netlify init` makes under the hood; doing
+   them directly avoids its arrow-key menus, which can't be driven on Windows.
+   **Admin prerequisite (once per org):** the Netlify GitHub App is installed on
+   `AstroLabs-people` — if a step 404s, say *"Your admin needs to connect Netlify to the
+   team's GitHub once — I can't do that part,"* never a raw error.
 
    ```bash
-   CFG="$HOME/Library/Preferences/netlify/config.json"
-   [ -f "$CFG" ] || netlify status >/dev/null 2>&1     # ensure the CLI created it
-   NID=$(jq -r '.userId // "undefined"' "$CFG" 2>/dev/null); [ -n "$NID" ] || NID=undefined
-   jq --arg id "$NID" --arg t "$(gh auth token)" --arg u "$(gh api user --jq .login)" \
-     '.users[$id].auth.github = {provider:"github", token:$t, user:$u}' \
-     "$CFG" > "$CFG.tmp" && mv "$CFG.tmp" "$CFG"
+   SLUG=<slug>; NAME=<globally-unique site name>; REPO="AstroLabs-people/$SLUG"
+   ACCT=$(netlify api listAccountsForUser | jq -r '.[] | select(.name=="AstroLabs People") | .slug' | tr -d '\r')
+   [ -n "$ACCT" ] || { echo "not on the AstroLabs People team" >&2; exit 1; }
+   # 1. the site, in the People team (on "name already taken", retry with a suffix)
+   SITE_ID=$(netlify api createSiteInTeam --data "$(jq -n --arg a "$ACCT" --arg n "$NAME" '{account_slug:$a, body:{name:$n}}')" | jq -r .id | tr -d '\r')
+   # 2. a read-only deploy key, registered on the repo
+   KEY=$(netlify api createDeployKey)
+   KEY_ID=$(jq -r .id <<<"$KEY" | tr -d '\r'); PUB=$(jq -r .public_key <<<"$KEY" | tr -d '\r')
+   gh api -X POST "repos/$REPO/keys" -f title="Netlify Deploy Key" -f key="$PUB" -F read_only=true >/dev/null
+   # 3. attach the repo to the site; Netlify answers with the site's deploy hook URL
+   REPO_ID=$(gh api "repos/$REPO" --jq .id)
+   HOOK=$(netlify api updateSite --data "$(jq -n --arg s "$SITE_ID" --argjson rid "$REPO_ID" --arg k "$KEY_ID" --arg p "$REPO" \
+     '{site_id:$s, body:{repo:{id:$rid, provider:"github", repo_path:$p, repo_branch:"main", allowed_branches:["main"], deploy_key_id:$k, cmd:"npm run build", dir:".next"}}}')" \
+     | jq -r .deploy_hook | tr -d '\r')
+   [ -n "$HOOK" ] && [ "$HOOK" != null ] || { echo "no deploy hook returned" >&2; exit 1; }
+   # 4. GitHub tells Netlify about pushes and pull requests (this is what makes previews fire)
+   gh api -X POST "repos/$REPO/hooks" -f name=web -f "config[url]=$HOOK" -f "config[content_type]=json" \
+     -f "events[]=push" -f "events[]=pull_request" -f "events[]=delete" -F active=true >/dev/null
+   # 5. Netlify reports build status back on GitHub
+   for EV in deploy_created deploy_failed deploy_building; do
+     netlify api createHookBySiteId --data "$(jq -n --arg s "$SITE_ID" --arg e "$EV" --arg t "$(gh auth token)" \
+       '{site_id:$s, body:{type:"github_commit_status", event:$e, data:{access_token:$t}}}')" >/dev/null
+   done
+   # 6. link this folder to the site, then build it once
+   netlify link --id "$SITE_ID"
+   netlify api createSiteBuild --data "$(jq -n --arg s "$SITE_ID" '{site_id:$s}')" >/dev/null
    ```
-
-   Then run `netlify init` and drive only its arrow-key menu:
-   - **Action:** default is *Connect to an existing project* — move **down one** to
-     **Create & configure a new project**.
-   - **Team:** **AstroLabs People**. If that team isn't offered, stop and say
-     plainly *"Your Netlify sign-in isn't on the People team yet — your admin needs
-     to add you."* Never create a People app in any other team.
-   - **Project name:** a globally-unique slug (per step 1).
-   - **Build settings:** accept the detected Next.js defaults (from `netlify.toml`).
-   - Scripting with `expect`: match with **`-nocase`**, and for each menu **wait for
-     it to finish drawing**, then send a down-arrow (`\033[B`) and Enter.
-
-   A clean run ends with **"Success! Netlify CI/CD Configured!"**. Confirm with
-   `netlify status`.
+   Every call must succeed — stop at the first failure and explain it in one plain
+   sentence. Confirm with `netlify status` and that the site's
+   `build_settings.repo_path` is `AstroLabs-people/<slug>`. The first build has no live
+   sign-in yet, so the live address won't open until the admin adds the live codes —
+   that's expected.
 5. **Turn on sign-in.** People apps open only for approved people, through Clerk.
    Ask in plain words for the **two sign-in codes for testing** their admin made for
    this app (*"Paste the two sign-in codes your admin sent for this app — they start
@@ -95,8 +97,8 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
 - Never add a site password or make the app public — sign-in is the only way in.
 - Never put test codes on the live app or live codes on previews.
 - Never put a Netlify deploy token or any sign-in code into the repo.
-- Never use `netlify init`'s browser GitHub authorization — always the seeded team
-  token (step 4).
+- Never fall back to `netlify init`'s browser GitHub authorization — it grabs the
+  builder's personal GitHub session.
 - Never create the app outside `AstroLabs-people` or the AstroLabs People Netlify
   team.
 - Never say "repo", "org", "template", "Clerk", "key" or "deploy" to the builder.
