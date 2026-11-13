@@ -17,10 +17,12 @@ API — the builder never opens a dashboard.
   testing" / "for the preview" → test list; "on the live app" → live list), and if
   they didn't say, ask once in plain words: *"Should Sara get into the live app, the
   preview you're testing, or both?"* Never guess, and never put real staff on the
-  test list just to be safe.
+  test list just to be safe. When **new-app** or **make-it-live** calls this with a
+  list (`CTX`), use that list and don't ask.
 - **Remove someone:** **both lists**, always.
 - **"Who can get in?":** if the app has live codes, show both lists, each
-  labelled (live app / testing); otherwise show the test list and say so.
+  labelled (live app / testing); otherwise show the test list and say so. If one
+  list can't be read, say that one couldn't be read; never show it as empty.
 
 ## Steps
 
@@ -94,8 +96,9 @@ carry over from one call to the next. Put step 1 and everything that uses its
      account they made, with the two checked steps above. That lookup must succeed;
      if either step fails, stop, because the removal is **not done**. Block
      **every** account the lookup returns, verified or not: removal fails closed. An
-     account that only held this address **unverified** may be someone else's: name
-     it to the builder (its verified address) and offer to unblock it. Then find the entry id
+     account that only held this address **unverified** may be someone else's: tell
+     the builder (by its verified address, if it has one). To unblock it, approve
+     that person's own email; **Approve** lifts the block, with its checks. Then find the entry id
      in the full list above (compare emails lowercased), `DELETE $API/allowlist_identifiers/<id>`, and
      `POST $API/users/<id>/ban` for each account found. Never report someone as
      removed without having checked for their account.

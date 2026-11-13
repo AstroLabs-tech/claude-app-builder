@@ -47,11 +47,12 @@ ask which team it's for before creating anything.
    # 1. the site, in the People team
    SITE_ID=$(netlify api createSiteInTeam --data "$(jq -n --arg a "$ACCT" --arg n "$NAME" '{account_slug:$a, body:{name:$n}}')" | jq -er .id | tr -d '\r') \
      || { echo "couldn't create the site (is the name taken?)" >&2; exit 1; }
-   echo "site $SITE_ID"   # note it: you need it if a later call fails
+   echo "site $SITE_ID"   # note the ids it prints: you need them if a later call fails
    # 2. a read-only deploy key, registered on the repo
    KEY=$(netlify api createDeployKey) || { echo "couldn't make a deploy key" >&2; exit 1; }
    KEY_ID=$(jq -er .id <<<"$KEY" | tr -d '\r') && PUB=$(jq -er .public_key <<<"$KEY" | tr -d '\r') \
      || { echo "unexpected deploy key reply" >&2; exit 1; }
+   echo "deploy key $KEY_ID"
    gh api -X POST "repos/$REPO/keys" -f title="Netlify Deploy Key" -f key="$PUB" -F read_only=true >/dev/null \
      || { echo "couldn't add the deploy key on GitHub" >&2; exit 1; }
    # 3. attach the repo and Netlify's Next.js runtime (without it every page is a 404);
@@ -78,11 +79,12 @@ ask which team it's for before creating anything.
    Every call must succeed, and each one stops the block if it doesn't (`jq -e` also
    stops on a missing field, so a `null` id never slips through). At the first
    failure, explain it in one plain sentence.
-   - If the **site name is taken** (the first call fails that way), run the block
+   - If the **site name is taken** (site creation fails that way), run the block
      again with a suffixed `NAME`; nothing else was created yet.
    - If a **later** call fails, don't re-run from the top, because that would make
      a second site. Fix the cause and carry on from the failed step with the same
-     `SITE_ID` (and `KEY_ID` / `HOOK`, re-read from the site if needed).
+     `SITE_ID` and `KEY_ID` it printed (`HOOK` can be re-read from the site after
+     step 3).
 
    Don't start another build: step 3 already did. Confirm with
    `netlify status`, that the site's `build_settings.repo_path` is
@@ -111,7 +113,7 @@ ask which team it's for before creating anything.
    able to open it."*
 
    If you stored the test codes, put the builder's own work email
-   (`git config user.email`) on the approved list (the **who-can-get-in**
+   (`git config --global user.email`, set by set-up-my-computer) on the approved list (the **who-can-get-in**
    skill, test list) so they can sign in to their own app, and
    **switch that list on** (who-can-get-in → *Switch the list on*). If it doesn't
    come back on, stop and say the admin needs to switch on the approved-list setting.

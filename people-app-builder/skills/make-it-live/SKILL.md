@@ -34,7 +34,8 @@ Publish the previewed version to the live app. This is the one action that
 4. **Make sure someone can get in and nobody else can — every time.** Read the full
    live list (who-can-get-in → **List**, `CTX=production`); if that read fails,
    stop. If it's **empty**, note that (step 6 needs it), approve the builder's own
-   work email (`git config user.email`) on the **live list** — who-can-get-in →
+   work email (`git config --global user.email`, set by set-up-my-computer) on the
+   **live list** — who-can-get-in →
    **Approve** with `CTX=production` — tell them you've added them so they can open
    it, and **read the list again**. Then run who-can-get-in → *Switch the list on*
    with `CTX=production`, including its account check, against that fresh list. If

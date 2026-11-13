@@ -78,9 +78,12 @@ sign-in for approved people, its data in the platform's managed database, and
      data, keys, or a version without sign-in.
      ```bash
      # `set -e` does nothing in Claude Code's shell, so each step has its own stop
-     if [ -d .git ]; then
+     NEW="https://github.com/AstroLabs-people/<slug>.git"
+     if git rev-parse -q --verify people-main >/dev/null; then
+       git switch -q people-main || exit 1   # a re-run: the clean start already exists
+     elif [ -d .git ]; then
        git remote -v        # look before changing anything
-       if git remote get-url origin >/dev/null 2>&1; then
+       if git remote get-url origin >/dev/null 2>&1 && [ "$(git remote get-url origin)" != "$NEW" ]; then
          git remote rename origin "old-$(date +%Y%m%d%H%M%S)" || exit 1
        fi
        git checkout --orphan people-main || exit 1
@@ -92,12 +95,13 @@ sign-in for approved people, its data in the platform's managed database, and
      git diff --cached --name-only
      ```
      Read that file list. Anything that looks like keys or data (`.env*`, exports,
-     `.csv` / `.xlsx`, database dumps) comes out first: `git rm --cached <file>`, and
-     add it to `.gitignore`. Then:
+     `.csv` / `.xlsx`, database dumps) comes out first: `git rm --cached <file>`, add
+     it to `.gitignore`, and `git add .gitignore`. Then (safe to re-run if the push
+     fails):
      ```bash
      NEW="https://github.com/AstroLabs-people/<slug>.git"
-     git commit -q -m "Start <app> on the People platform" || exit 1
-     git remote add origin "$NEW" || exit 1
+     git rev-parse -q --verify HEAD >/dev/null || git commit -q -m "Start <app> on the People platform" || exit 1
+     git remote get-url origin >/dev/null 2>&1 || git remote add origin "$NEW" || exit 1
      [ "$(git remote get-url origin)" = "$NEW" ] || { echo "wrong place — stop" >&2; exit 1; }
      git push -u origin people-main:main || exit 1
      ```

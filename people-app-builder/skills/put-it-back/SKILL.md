@@ -47,11 +47,14 @@ Netlify — done entirely through the tools, never a dashboard.
    **hasn't been made yet**: say the live app is back, and that the undo still needs
    making before the next "make it live".
    ```bash
+   set -o pipefail
    GOOD=<commit_ref of $PREV>
-   git fetch origin
+   git fetch origin || exit 1
+   git cat-file -e "$GOOD^{commit}" || { echo "good version not found here" >&2; exit 1; }
    # get onto `preview` exactly as save-preview step 2 does (GitHub's copy if it has one)
-   git diff --binary origin/main "$GOOD" | git apply --index --3way
-   git commit -m "Put back the version from before <the problem, in plain words>"
+   git diff --binary origin/main "$GOOD" | git apply --index --3way || { echo "undo didn't apply cleanly" >&2; exit 1; }
+   git diff --cached --quiet && { echo "nothing to undo on the working line" >&2; exit 1; }
+   git commit -q -m "Put back the version from before <the problem, in plain words>" || exit 1
    ```
    Before pushing, run **save-preview** step 4 (the test-list check). Then push
    `preview` and open or update the preview pull request as **save-preview** does.
