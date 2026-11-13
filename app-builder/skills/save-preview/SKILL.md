@@ -8,6 +8,10 @@ description: Publish a private, shareable preview of the current app without tou
 Commit the current work, push it, and hand back the shareable preview link that
 Netlify builds for the open pull request. This never touches the live site.
 
+> **Not for People apps.** If this app's repo is in `AstroLabs-people`, stop: People
+> apps use the **people-app-builder** plugin's **save-preview**, which checks the approved list first (People apps have no site password). Never do this
+> for a People app from here.
+
 > **Ops Hub exception** (`AstroLabs-ops/astrolabs-cpr`). The builder works on a
 > *module*, which already has its own permanent link — see **work-on-a-module**.
 > Every other app follows the steps below unchanged. On the hub:

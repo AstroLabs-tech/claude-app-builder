@@ -1,0 +1,44 @@
+---
+name: store-secret
+description: Internal helper — use when the app (or its build / scheduled steps) needs an API key, token, webhook URL, or a deploy/CI token. This is NOT a phrase the builder says; trigger it whenever you're building a feature or pipeline step that needs a credential. Collects the value in plain language and stores it safely (never in a local file or the code), never showing jargon.
+---
+
+# store-secret
+
+When a feature needs a credential (a webhook URL, an API key, a token), get it
+from the builder in plain words and store it on the app's Netlify site — never
+in the code. **This includes deploy/CI and build-step tokens** (a token a scheduled
+refresh or build step needs, a Netlify deploy token, etc.) — those belong here too, read
+from the environment at build/run time, **never left in a local file or a deploy script.**
+
+## Steps
+
+1. Ask for it plainly: *"To connect to Slack I need your webhook link — paste it
+   here."* Don't say "environment variable", "secret", or "API key" unless they
+   do.
+2. Store it on the site, scoped to this app (encrypted, per-site):
+   `netlify env:set <NAME> '<value>' >/dev/null && echo stored`
+   Put the value in **single quotes** (write any `'` inside it as `'\''`) so the shell
+   never expands `$` or backticks in it, and send the command's output to `/dev/null`
+   — the CLI echoes the value back otherwise.
+   If the value differs between previews and the live app (a test key vs a live
+   key), set each with `--context`: `dev deploy-preview branch-deploy` for the test
+   value, `production` for the live one.
+3. Read it in server code from `process.env.<NAME>`, in a route under `app/api/`.
+4. It reaches previews and production automatically; if it was added after the
+   last build, a fresh "save a preview" / "make it live" picks it up.
+5. **If `netlify env:set` fails** with *"Missing required path variable 'account_id'"*
+   (or similar), the builder's Netlify sign-in isn't a member of the team that owns this
+   site — you can't store it from here. Don't show the raw error; say plainly: *"I can't
+   save this from here — your Netlify sign-in isn't on the team that owns this app. Your
+   admin needs to add you, or re-issue your Netlify token from the team account."*
+   (See the template's SETUP.md.)
+
+## Never
+
+- Never write the value into a file, commit it, or print it back to the builder — that
+  includes deploy/CI tokens (they go here via `netlify env:set`, never a local file or script).
+- Never expose it to the browser — only read it in server code (`app/api/...`).
+- One app's keys never touch another app (per-site scope).
+- Never send employee data to a new outside service just because you have a key for
+  it — check with the builder that the service is approved for People data.
