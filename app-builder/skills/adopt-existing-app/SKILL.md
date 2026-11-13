@@ -11,6 +11,11 @@ platform's **managed database** — without throwing away their working code. As
 the one-time setup is done (see set-up-my-computer) and this machine is signed in as
 the team account.
 
+> **Not for People apps.** If what they have is a People-team app (employee data such
+> as reviews, ratings or personal details, or anything in `AstroLabs-people`), stop
+> and use the **people-app-builder** plugin's **adopt-existing-app**. It must never
+> land in this team's org or Netlify team.
+
 **Be conservative.** Preserve their working code; add the platform's wiring *around*
 it — don't rewrite their app's features to fit the template. When something needs a
 real judgment call (a stack you can't cleanly fit, data sitting in a private place),

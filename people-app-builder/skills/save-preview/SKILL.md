@@ -14,7 +14,8 @@ Netlify builds for the open pull request. This never touches the live site.
 1. **Check for someone else's work in progress.** Everyone shares one GitHub login,
    so look at who wrote the changes, not who opened the pull request:
    `gh pr list --head preview --state open --json number,commits --jq '.[].commits[].authors[].email'`.
-   If any of those emails isn't this builder's (`git config --global user.email`),
+   Ignore `noreply@anthropic.com` (Claude's co-author line on every change). If any
+   other email isn't this builder's (`git config --global user.email`),
    say so plainly and ask before continuing:
    *"Heads up — Sam already has a change in progress on this app. Want to build on
    top of theirs, or wait?"* (One owner at a time per app.)
@@ -56,7 +57,7 @@ Netlify builds for the open pull request. This never touches the live site.
    If no preview appears within a few minutes, check whether Netlify is **holding**
    it. A held build never shows in the normal list of deploys, only in the builds:
    ```bash
-   SITE_ID=$(jq -r .siteId .netlify/state.json)
+   SITE_ID=$(jq -er .siteId .netlify/state.json | tr -d '\r')
    netlify api listSiteBuilds --data "{\"site_id\":\"$SITE_ID\"}" \
      | jq -r --arg p "pull/<PR-number>/head" '[.[] | select(.sha==$p)][0].deploy_state' | tr -d '\r'
    ```

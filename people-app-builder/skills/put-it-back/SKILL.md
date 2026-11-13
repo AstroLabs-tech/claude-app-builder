@@ -17,27 +17,34 @@ Netlify — done entirely through the tools, never a dashboard.
    set -eo pipefail
    SITE_ID=$(jq -er .siteId .netlify/state.json | tr -d '\r')
    CUR=$(netlify api getSite --data "{\"site_id\":\"$SITE_ID\"}" | jq -er .published_deploy.id | tr -d '\r')
-   PREV=$(netlify api listSiteDeploys --data "{\"site_id\":\"$SITE_ID\"}" \
+   PREV=$(netlify api listSiteDeploys --data "{\"site_id\":\"$SITE_ID\",\"per_page\":100}" \
      | jq -er --arg c "$CUR" '[.[] | select(.context == "production" and .state == "ready")] as $d
-         | ($d | map(.id) | index($c)) as $i | $d[$i + 1] | .id' | tr -d '\r')
+         | ($d | map(.id) | index($c)) as $i
+         | if $i == null then error("current version not in the list") else $d[$i + 1].id end' | tr -d '\r')
    ```
-   If there's no earlier version, say there's nothing to go back to and stop.
+   If it stops because the current version isn't in the list, don't guess: say you
+   couldn't find which version to go back to. If there's no earlier version (`null`),
+   say there's nothing to go back to. Either way, stop.
 2. **Republish it** with `netlify api restoreSiteDeploy --data '{"site_id":"…","deploy_id":"…"}'`,
    then confirm the site's `published_deploy.id` is now `$PREV`. Only then is it
    rolled back.
 3. **Keep the problem from coming back.** Rolling back doesn't stop auto
    publishing, and `main` still holds the faulty version, so the next "make it live"
    would publish it again. Straight away, add the undo on top of the working line
-   as one new change (never rewrite history):
+   as one new change (never rewrite history). First do **save-preview** step 1
+   (someone else's work in progress); if another builder has unpublished work on
+   `preview`, ask before adding the undo on top of it.
    ```bash
    GOOD=<commit_ref of $PREV>
    git fetch origin
    # get onto `preview` exactly as save-preview step 2 does (GitHub's copy if it has one)
    git diff --binary origin/main "$GOOD" | git apply --index --3way
    git commit -m "Put back the version from before <the problem, in plain words>"
-   git push -u origin preview
    ```
-   Then open or update the preview pull request as **save-preview** does. The diff
+   Before pushing, run **save-preview** step 4 (the test-list check). Then push
+   `preview` and open or update the preview pull request as **save-preview** does.
+   If either check stops you, the live app is still rolled back: say so, and that
+   the undo is saved on this computer but not shared yet. The diff
    undoes exactly what `main` gained after the good version and leaves any
    unpublished work on `preview` alone. If it doesn't apply cleanly, stop: the live
    app is already back, so say that, and that the undo still needs saving before

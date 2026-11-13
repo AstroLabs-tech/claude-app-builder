@@ -12,8 +12,9 @@ API — the builder never opens a dashboard.
 
 ## Pick the list
 
-- **Approve someone:** the **live list** if the app has gone live (it has live codes),
-  otherwise the **test list**. If they say "for testing" or "for the preview", use
+- **Approve someone:** the **live list** if the app has gone live (it has live codes
+  **and** its live list isn't empty, because make-it-live puts the builder on it
+  the first time), otherwise the **test list**. If they say "for testing" or "for the preview", use
   the test list. Never put real staff on the test list just to be safe.
 - **Remove someone:** **both lists**, always.
 - **"Who can get in?":** show the list for the live app if it's live, otherwise the
@@ -89,8 +90,10 @@ carry over from one call to the next. Put step 1 and everything that uses its
      but the old block couldn't be checked.
    - **Remove** (per email, on both lists), in this order: first look up any
      account they made, with the two checked steps above. That lookup must succeed;
-     if either step fails, stop, because the removal is **not done**. Block every
-     account the lookup returns, verified or not. Then find the entry id
+     if either step fails, stop, because the removal is **not done**. Block the
+     accounts where this address is **verified** (the same filter as above). An
+     account that only holds it unverified belongs to someone else, and that address
+     gives no way in. Then find the entry id
      in the full list above (compare emails lowercased), `DELETE $API/allowlist_identifiers/<id>`, and
      `POST $API/users/<id>/ban` for each account found. Never report someone as
      removed without having checked for their account.
