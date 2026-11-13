@@ -16,7 +16,7 @@ Netlify builds for the open pull request. This never touches the live site.
    `gh pr list --head preview --state open --json number,commits --jq '.[].commits[].authors[].email'`.
    Compare lowercased, and ignore Claude's co-author address
    (`noreply@anthropic.com`, on every change). If any other email isn't this
-   builder's (`git config --global user.email`),
+   builder's (`git config user.email`, the address their changes are saved with),
    say so plainly and ask before continuing:
    *"Heads up — Sam already has a change in progress on this app. Want to build on
    top of theirs, or wait?"* (One owner at a time per app.)

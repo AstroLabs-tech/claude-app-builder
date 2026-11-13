@@ -12,15 +12,15 @@ API — the builder never opens a dashboard.
 
 ## Pick the list
 
-- **Approve someone:** the **live list** if the app has gone live, otherwise the
-  **test list**. *Gone live* means it has live codes **and** a preview has been
-  published at least once
-  (`gh pr list --head preview --base main --state merged --limit 1` returns one).
-  If they say "for testing" or "for the preview", use
-  the test list. Never put real staff on the test list just to be safe.
+- **Approve someone:** if the app has **no live codes** yet, there's only the
+  **test list**, so use it. If it has live codes, use what the builder said ("for
+  testing" / "for the preview" → test list; "on the live app" → live list), and if
+  they didn't say, ask once in plain words: *"Should Sara get into the live app, the
+  preview you're testing, or both?"* Never guess, and never put real staff on the
+  test list just to be safe.
 - **Remove someone:** **both lists**, always.
-- **"Who can get in?":** show the live list if the app has gone live (same test as
-  above), otherwise the test list, and say which one it is.
+- **"Who can get in?":** if the app has live codes, show both lists, each
+  labelled (live app / testing); otherwise show the test list and say so.
 
 ## Steps
 
@@ -93,9 +93,9 @@ carry over from one call to the next. Put step 1 and everything that uses its
    - **Remove** (per email, on both lists), in this order: first look up any
      account they made, with the two checked steps above. That lookup must succeed;
      if either step fails, stop, because the removal is **not done**. Block
-     **every** account the lookup returns, verified or not: removal fails closed. If
-     that also blocks someone else's account (it only held this address unverified),
-     they're unblocked when they're approved themselves. Then find the entry id
+     **every** account the lookup returns, verified or not: removal fails closed. An
+     account that only held this address **unverified** may be someone else's: name
+     it to the builder (its verified address) and offer to unblock it. Then find the entry id
      in the full list above (compare emails lowercased), `DELETE $API/allowlist_identifiers/<id>`, and
      `POST $API/users/<id>/ban` for each account found. Never report someone as
      removed without having checked for their account.

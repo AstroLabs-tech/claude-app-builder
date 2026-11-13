@@ -14,14 +14,16 @@ Netlify — done entirely through the tools, never a dashboard.
    deploy. Take the newest ready **production** deploy older than the one now
    published:
    ```bash
-   set -eo pipefail
-   SITE_ID=$(jq -er .siteId .netlify/state.json | tr -d '\r')
-   CUR=$(netlify api getSite --data "{\"site_id\":\"$SITE_ID\"}" | jq -er .published_deploy.id | tr -d '\r')
+   set -o pipefail   # `set -e` does nothing in Claude Code's shell: each call has its own stop
+   SITE_ID=$(jq -er .siteId .netlify/state.json | tr -d '\r') || exit 1
+   CUR=$(netlify api getSite --data "{\"site_id\":\"$SITE_ID\"}" | jq -er .published_deploy.id | tr -d '\r') || exit 1
    P=1; FOUND=""; PREV=""
    while [ -z "$PREV" ]; do   # newest first, page by page: the next ready production deploy after CUR
-     PAGE=$(netlify api listSiteDeploys --data "{\"site_id\":\"$SITE_ID\",\"page\":$P,\"per_page\":100}")
-     N=$(jq -er 'if type == "array" then length else error("unexpected reply") end' <<<"$PAGE")
-     for ID in $(jq -r '.[] | select(.context == "production" and .state == "ready") | .id' <<<"$PAGE" | tr -d '\r'); do
+     PAGE=$(netlify api listSiteDeploys --data "{\"site_id\":\"$SITE_ID\",\"page\":$P,\"per_page\":100}") || exit 1
+     N=$(jq -er 'if type == "array" then length else error("unexpected reply") end' <<<"$PAGE") || exit 1
+     # only versions that were actually live: production, ready, and published at some point
+     IDS=$(jq -r '.[] | select(.context == "production" and .state == "ready" and .published_at != null) | .id' <<<"$PAGE" | tr -d '\r') || exit 1
+     for ID in $IDS; do
        if [ -n "$FOUND" ]; then PREV=$ID; break; fi
        [ "$ID" = "$CUR" ] && FOUND=1
      done
@@ -53,8 +55,8 @@ Netlify — done entirely through the tools, never a dashboard.
    ```
    Before pushing, run **save-preview** step 4 (the test-list check). Then push
    `preview` and open or update the preview pull request as **save-preview** does.
-   If that check stops you, the live app is still rolled back: say so, and that the
-   undo is saved on this computer but not shared yet. The diff
+   If that check, the push or the pull request fails, the live app is still rolled
+   back: say so, and that the undo is saved on this computer but not shared yet. The diff
    undoes exactly what `main` gained after the good version and leaves any
    unpublished work on `preview` alone. If it doesn't apply cleanly, stop: the live
    app is already back, so say that, and that the undo still needs saving before

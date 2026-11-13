@@ -39,37 +39,45 @@ ask which team it's for before creating anything.
    part,"* never a raw error.
 
    ```bash
-   set -eo pipefail   # any failed call, even inside a pipe, stops everything after it
+   # `set -e` does nothing in Claude Code's shell, so every call ends with its own stop
+   set -o pipefail
    SLUG=<slug>; NAME=<globally-unique site name>; REPO="AstroLabs-people/$SLUG"
-   ACCT=$(netlify api listAccountsForUser | jq -er '.[] | select(.name=="AstroLabs People") | .slug' | tr -d '\r')
+   ACCT=$(netlify api listAccountsForUser | jq -er '.[] | select(.name=="AstroLabs People") | .slug' | tr -d '\r') \
+     || { echo "not on the AstroLabs People team" >&2; exit 1; }
    # 1. the site, in the People team
-   SITE_ID=$(netlify api createSiteInTeam --data "$(jq -n --arg a "$ACCT" --arg n "$NAME" '{account_slug:$a, body:{name:$n}}')" | jq -er .id | tr -d '\r')
+   SITE_ID=$(netlify api createSiteInTeam --data "$(jq -n --arg a "$ACCT" --arg n "$NAME" '{account_slug:$a, body:{name:$n}}')" | jq -er .id | tr -d '\r') \
+     || { echo "couldn't create the site (is the name taken?)" >&2; exit 1; }
    echo "site $SITE_ID"   # note it: you need it if a later call fails
    # 2. a read-only deploy key, registered on the repo
-   KEY=$(netlify api createDeployKey)
-   KEY_ID=$(jq -er .id <<<"$KEY" | tr -d '\r'); PUB=$(jq -er .public_key <<<"$KEY" | tr -d '\r')
-   gh api -X POST "repos/$REPO/keys" -f title="Netlify Deploy Key" -f key="$PUB" -F read_only=true >/dev/null
+   KEY=$(netlify api createDeployKey) || { echo "couldn't make a deploy key" >&2; exit 1; }
+   KEY_ID=$(jq -er .id <<<"$KEY" | tr -d '\r') && PUB=$(jq -er .public_key <<<"$KEY" | tr -d '\r') \
+     || { echo "unexpected deploy key reply" >&2; exit 1; }
+   gh api -X POST "repos/$REPO/keys" -f title="Netlify Deploy Key" -f key="$PUB" -F read_only=true >/dev/null \
+     || { echo "couldn't add the deploy key on GitHub" >&2; exit 1; }
    # 3. attach the repo and Netlify's Next.js runtime (without it every page is a 404);
    #    Netlify answers with the site's deploy hook URL
-   REPO_ID=$(gh api "repos/$REPO" --jq .id)
+   REPO_ID=$(gh api "repos/$REPO" --jq .id) || { echo "couldn't read the repo" >&2; exit 1; }
    HOOK=$(netlify api updateSite --data "$(jq -n --arg s "$SITE_ID" --argjson rid "$REPO_ID" --arg k "$KEY_ID" --arg p "$REPO" \
      '{site_id:$s, body:{repo:{id:$rid, provider:"github", repo_path:$p, repo_branch:"main", allowed_branches:["main"], deploy_key_id:$k, cmd:"npm run build", dir:".next"}, plugins:[{package:"@netlify/plugin-nextjs"}]}}')" \
-     | jq -er .deploy_hook | tr -d '\r')
+     | jq -er .deploy_hook | tr -d '\r') || { echo "couldn't attach the repo to the site" >&2; exit 1; }
    # 4. GitHub tells Netlify about pushes and pull requests (this is what makes previews fire)
    gh api -X POST "repos/$REPO/hooks" -f name=web -f "config[url]=$HOOK" -f "config[content_type]=json" \
-     -f "events[]=push" -f "events[]=pull_request" -f "events[]=delete" -F active=true >/dev/null
+     -f "events[]=push" -f "events[]=pull_request" -f "events[]=delete" -F active=true >/dev/null \
+     || { echo "couldn't add the GitHub webhook" >&2; exit 1; }
    # 5. Netlify reports build status back on GitHub
    # the same GitHub token netlify init stores; Netlify uses it only to post build status
-   TOK=$(gh auth token); [ -n "$TOK" ]   # its own line, so a failure stops here
+   TOK=$(gh auth token) && [ -n "$TOK" ] || { echo "no GitHub token" >&2; exit 1; }
    for EV in deploy_created deploy_failed deploy_building; do
      netlify api createHookBySiteId --data "$(jq -n --arg s "$SITE_ID" --arg e "$EV" --arg t "$TOK" \
-       '{site_id:$s, body:{type:"github_commit_status", event:$e, data:{access_token:$t}}}')" >/dev/null
+       '{site_id:$s, body:{type:"github_commit_status", event:$e, data:{access_token:$t}}}')" >/dev/null \
+       || { echo "couldn't add the $EV status hook" >&2; exit 1; }
    done
    # 6. link this folder to the site (attaching the repo in step 3 already started the first build)
-   netlify link --id "$SITE_ID"
+   netlify link --id "$SITE_ID" || { echo "couldn't link this folder" >&2; exit 1; }
    ```
-   Every call must succeed. `jq -e` stops on a missing field, so a `null` id never
-   slips through. At the first failure, stop and explain it in one plain sentence.
+   Every call must succeed, and each one stops the block if it doesn't (`jq -e` also
+   stops on a missing field, so a `null` id never slips through). At the first
+   failure, explain it in one plain sentence.
    - If the **site name is taken** (the first call fails that way), run the block
      again with a suffixed `NAME`; nothing else was created yet.
    - If a **later** call fails, don't re-run from the top, because that would make
@@ -103,7 +111,7 @@ ask which team it's for before creating anything.
    able to open it."*
 
    If you stored the test codes, put the builder's own work email
-   (`git config --global user.email`) on the approved list (the **who-can-get-in**
+   (`git config user.email`) on the approved list (the **who-can-get-in**
    skill, test list) so they can sign in to their own app, and
    **switch that list on** (who-can-get-in → *Switch the list on*). If it doesn't
    come back on, stop and say the admin needs to switch on the approved-list setting.

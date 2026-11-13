@@ -33,8 +33,10 @@ Publish the previewed version to the live app. This is the one action that
    whose preview didn't build. If this check stops you, nothing has been changed.
 4. **Make sure someone can get in and nobody else can — every time.** Read the full
    live list (who-can-get-in → **List**, `CTX=production`); if that read fails,
-   stop. If the list is empty (first time live), approve the builder's own work
-   email and **read the list again**. Then run who-can-get-in → *Switch the list on*
+   stop. If it's **empty**, note that (step 6 needs it), approve the builder's own
+   work email (`git config user.email`) on the **live list** — who-can-get-in →
+   **Approve** with `CTX=production` — tell them you've added them so they can open
+   it, and **read the list again**. Then run who-can-get-in → *Switch the list on*
    with `CTX=production`, including its account check, against that fresh list. If
    it doesn't pass, stop — don't publish. By then the live list may already have
    changed (the builder approved, the setting switched on), so say what was done.
@@ -52,8 +54,8 @@ Publish the previewed version to the live app. This is the one action that
    the reason in one plain sentence and offer to fix it. If no deploy appears, check
    for a build held at `pending_review` (see **save-preview** step 6): it needs the
    same one-time admin OK, and the previous version stays up until then.
-6. **First time live:** tell them that people they approved for testing aren't on
-   the live list yet, and that they can approve anyone for the live app the same
+6. **If the live list was empty in step 4:** tell them that people they approved
+   for testing aren't on the live list yet, and that they can approve anyone for the live app the same
    way (*"let Sara in"*).
 
 ## Reply
