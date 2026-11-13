@@ -53,18 +53,35 @@ sign-in for approved people, its data in the platform's managed database, and
      **store-secret**.
    Show each slice with "show me" before starting the next.
 
-4. **An app that already runs elsewhere (not a prototype) → bring it over.** First,
-   **locally**, graft the platform wiring from `AstroLabs-people/app-starter` around
-   their code:
+4. **An app that already runs elsewhere (not a prototype) → bring it over.** Only a
+   **Next.js (App Router) app** can come over as is, because the sign-in only runs
+   inside Next.js. Rebuild any other framework on the template, as in step 3.
+   For a Next.js app, first, **locally**, graft the platform wiring from
+   `AstroLabs-people/app-starter` around their code:
    `netlify.toml`, `.github/workflows/checks.yml`, `.nvmrc`, `.gitignore`, `CLAUDE.md`,
    `scripts/bootstrap.sh`, and the sign-in (`middleware.ts`, `lib/viewer.ts`,
    `app/sign-in`, `app/sign-up`, the provider in the root layout). Keep their working
    features; fix config, not features. Check its who-sees-what rules run on the
-   server, as in step 3, and that it builds. **Only then** create
-   `gh repo create "AstroLabs-people/<slug>" --private`, point the folder at it over
-   HTTPS (rename any existing remote to `old`), and push — so no version without
-   sign-in ever reaches GitHub or Netlify. Then connect Netlify and sign-in as in
-   **new-app** steps 4–5.
+   server, as in step 3, and that it builds.
+   - **Prove sign-in guards everything.** Run it with the two test codes the admin
+     sent, passed on the command line the way **show-me** does, never saved to a
+     file. While signed out, every page must send you to sign-in (307) and every
+     API route must refuse (401/404).
+   - **Data:** same as step 3. Tables go in `db/schema.ts` and are applied on
+     publish. Real data comes only from the approved source, and only once sign-in
+     and the server rules are in place (step 5).
+   - **Only then** create `gh repo create "AstroLabs-people/<slug>" --private` and
+     push a **clean start, not the old history**: earlier versions can hold employee
+     data, keys, or a version without sign-in. Check `git status` shows no `.env`,
+     export or data file first, then:
+     ```bash
+     git remote rename origin old 2>/dev/null
+     git checkout --orphan people-main && git add -A && git commit -m "Start <app> on the People platform"
+     git remote add origin "https://github.com/AstroLabs-people/<slug>.git"
+     git push -u origin people-main:main
+     ```
+     Never push the old branches or tags. Then connect Netlify and sign-in as in
+     **new-app** steps 4–5.
 
 5. **Data:** never ship pointing at a personal database or a personal copy of a
    spreadsheet. Real employee data comes in only from the source the builder confirms

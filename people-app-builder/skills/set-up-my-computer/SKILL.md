@@ -80,8 +80,10 @@ permission — click Yes"* before each one and wait.
      Make sure the `NVM_DIR` / `nvm.sh` lines are in `~/.zshrc`, and **re-source them at
      the top of every later or background command** — non-login shells don't auto-load
      nvm, which is what makes `node`/`npm`/`netlify` come back "command not found".
-   - **Netlify CLI** — `npm install -g netlify-cli` **using nvm's Node**. If it ever
-     prompts for a password, you're on the system Node — run `nvm use 22` first.
+   - **Netlify CLI** — check again **after** nvm's Node 22 is active
+     (`netlify --version`): a copy installed under another Node version doesn't
+     count. If it's missing, `npm install -g netlify-cli` **using nvm's Node**. If it
+     ever prompts for a password, you're on the system Node — run `nvm use 22` first.
      (The Netlify CLI needs Node 22.13 or newer.)
    - **GitHub CLI** — `brew install gh` if Homebrew is present; otherwise download the
      latest release into a user folder and add it to PATH.

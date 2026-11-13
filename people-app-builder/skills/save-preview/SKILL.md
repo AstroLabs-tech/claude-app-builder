@@ -15,16 +15,26 @@ Netlify builds for the open pull request. This never touches the live site.
    preview/PR from another person, say so plainly and ask before continuing:
    *"Heads up — Sam already has a change in progress on this app. Want to build on
    top of theirs, or wait?"* (One owner at a time per app.)
-2. **Save the work.** Stage everything and commit with a short, plain message
+2. **Move onto the working line before saving.** Unsaved changes come along when
+   you switch. After `git fetch origin`: `git switch preview` if it exists here,
+   `git switch -c preview --track origin/preview` if it exists only on GitHub,
+   otherwise `git switch -c preview origin/main`. If the switch refuses because
+   the changes clash, stop and explain plainly. **Don't say any of these words to
+   the builder.**
+3. **Save the work.** Stage everything and commit with a short, plain message
    describing what changed (e.g. "Add a contact form"). The builder's name is the
-   author; the `Co-Authored-By: Claude` trailer stays on. If nothing has changed
-   since the last preview, skip ahead and just re-share the existing link.
-3. **Push the working line.** Work on a branch named `preview` (create it from
-   `main` if it doesn't exist) and push it. **Don't say any of these words to the
-   builder.**
-4. **Open or update the pull request** from `preview` into `main` (`gh pr create`
-   if none is open; an existing one updates itself on push).
-5. **Get the preview link.** Netlify builds a deploy preview for that PR
+   author; the `Co-Authored-By: Claude` trailer stays on. If nothing changed:
+   - an open preview pull request already exists → skip to step 6 and re-share its
+     link;
+   - no open preview → say *"There's nothing new to preview yet — it's the same as
+     your live app. Tell me what to change first."* and stop.
+4. **Make sure only approved testers can open it.** Switch the test list on
+   (**who-can-get-in** → *Switch the list on*, `CTX=dev`). If there are no test
+   codes or the list doesn't come back on, stop before pushing and say the admin
+   needs to finish setting up sign-in for this app.
+5. **Push `preview` and open or update the pull request** into `main`
+   (`gh pr create` if none is open; an existing one updates itself on push).
+6. **Get the preview link.** Netlify builds a deploy preview for that PR
    automatically. Read its URL from the PR's Netlify status (e.g.
    `gh pr view --json statusCheckRollup` or the commit status), or fall back to
    the pattern `https://deploy-preview-<PR-number>--<site-name>.netlify.app`.
@@ -41,11 +51,12 @@ Netlify builds for the open pull request. This never touches the live site.
    happens once per person, on their first preview. Only an admin can clear it, so
    tell the builder: *"Your first preview needs a one-time OK from your admin before
    it can be built. Once they've approved it, it builds by itself — say 'save a
-   preview' again and I'll give you the link."* For the admin, give this exact path: the app in Netlify → **Deploys** → the held preview →
-   **Further action required** → **Approve and match with existing team member** → pick
-   the builder. Never suggest **Reject**: after a reject, every later preview from
-   that person needs approval again.
-6. If the build failed, don't share a broken link — read the reason, explain it
+   preview' again and I'll give you the link."* For the admin, give this exact
+   path: the app in Netlify → **Deploys** → the held preview → **Further action
+   required** → **Approve and match with existing team member** → pick the builder.
+   Never suggest **Reject**: after a reject, every later preview from that person
+   needs approval again.
+7. If the build failed, don't share a broken link — read the reason, explain it
    in one plain sentence, and offer to fix it.
 
 ## Reply

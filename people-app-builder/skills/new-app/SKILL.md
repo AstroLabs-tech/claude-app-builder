@@ -43,10 +43,11 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    KEY=$(netlify api createDeployKey)
    KEY_ID=$(jq -r .id <<<"$KEY" | tr -d '\r'); PUB=$(jq -r .public_key <<<"$KEY" | tr -d '\r')
    gh api -X POST "repos/$REPO/keys" -f title="Netlify Deploy Key" -f key="$PUB" -F read_only=true >/dev/null
-   # 3. attach the repo to the site; Netlify answers with the site's deploy hook URL
+   # 3. attach the repo and Netlify's Next.js runtime (without it every page is a 404);
+   #    Netlify answers with the site's deploy hook URL
    REPO_ID=$(gh api "repos/$REPO" --jq .id)
    HOOK=$(netlify api updateSite --data "$(jq -n --arg s "$SITE_ID" --argjson rid "$REPO_ID" --arg k "$KEY_ID" --arg p "$REPO" \
-     '{site_id:$s, body:{repo:{id:$rid, provider:"github", repo_path:$p, repo_branch:"main", allowed_branches:["main"], deploy_key_id:$k, cmd:"npm run build", dir:".next"}}}')" \
+     '{site_id:$s, body:{repo:{id:$rid, provider:"github", repo_path:$p, repo_branch:"main", allowed_branches:["main"], deploy_key_id:$k, cmd:"npm run build", dir:".next"}, plugins:[{package:"@netlify/plugin-nextjs"}]}}')" \
      | jq -r .deploy_hook | tr -d '\r')
    [ -n "$HOOK" ] && [ "$HOOK" != null ] || { echo "no deploy hook returned" >&2; exit 1; }
    # 4. GitHub tells Netlify about pushes and pull requests (this is what makes previews fire)
@@ -63,7 +64,8 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    Every call must succeed — stop at the first failure and explain it in one plain
    sentence. Don't start another build: step 3 already did. Confirm with
    `netlify status`, that the site's `build_settings.repo_path` is
-   `AstroLabs-people/<slug>`, and that the first build in
+   `AstroLabs-people/<slug>`, that the site's `plugins` include
+   `@netlify/plugin-nextjs`, and that the first build in
    `netlify api listSiteBuilds --data '{"site_id":"…"}'` reaches `deploy_state: ready`.
    The first build has no live sign-in yet, so the live address won't open until the
    admin adds the live codes — that's expected.
@@ -84,14 +86,19 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    able to open it."*
 
    Then put the builder's own work email on the approved list (the
-   **who-can-get-in** skill, test list) so they can sign in to their own app.
-6. Confirm the connection is live (the first preview can be triggered by the first
-   "save a preview").
+   **who-can-get-in** skill, test list) so they can sign in to their own app, and
+   **switch that list on** (who-can-get-in → *Switch the list on*). If it doesn't
+   come back on, stop and say the admin needs to switch on the approved-list setting.
+6. The first preview comes with the builder's first change ("save a preview").
 
 ## Reply
 
 > "Your new app '<X>' is ready, and only approved people can sign in to it. Want to
 > see it? Just say 'show me'."
+
+Say "only approved people can sign in" only once the test list came back on. If
+the sign-in codes haven't arrived yet, end with the "your admin still needs to set
+up sign-in" line from step 5 instead.
 
 ## Never
 

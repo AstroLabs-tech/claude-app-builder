@@ -78,8 +78,11 @@ data. It is the same flow with stricter defaults and its own isolated home:
   Ops side can reach either. The org and team are fixed in the plugin, so builders
   only need their two tokens.
 - **Sign-in instead of a password:** every app requires Clerk sign-in, and only
-  approved emails can get in. Builders manage the list by saying *"let Sara in"* /
-  *"remove Omar"* / *"who can get in"* (**who-can-get-in**). No app can be made public.
+  approved emails can create an account. The skills switch the approved list on
+  before an app is previewed or published, and flag any account made before it was
+  on: those can still sign in until they're blocked. Builders manage the list by
+  saying *"let Sara in"* / *"remove Omar"* / *"who can get in"* (**who-can-get-in**).
+  No app can be made public.
 - **Prototypes:** *"I have a prototype"* rebuilds a Claude artifact on the People
   template and moves its who-sees-what rules to the server (**adopt-existing-app**).
 - No Ops Hub modules (`work-on-a-module`), no `make-it-private`.

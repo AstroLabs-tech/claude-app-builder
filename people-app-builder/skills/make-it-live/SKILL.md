@@ -25,19 +25,25 @@ Publish the previewed version to the live app. This is the one action that
    If it fails, stop and say: *"The live sign-in isn't set up yet — your admin needs
    to finish it (it needs the app's real web address). Your preview keeps working
    in the meantime."* Never publish with test codes, and never publish without sign-in.
+
+   Then make sure someone can get in and nobody else can: if the live list is empty
+   (first time live), approve the builder's own work email (**who-can-get-in**, live
+   list), then **switch the live list on** (who-can-get-in → *Switch the list on*,
+   `CTX=production`). If it doesn't come back on, stop — don't publish.
 3. **Check it's safe to publish.** There must be an open preview pull request and
    its checks must be green. Never publish a change whose preview didn't build.
 4. **Publish.** Merge the preview pull request into `main`. Netlify deploys `main`
    to the live app automatically — wait for that production deploy to finish and
-   **confirm it succeeded** (its state is `ready` for the merged version). Any
-   forward-only data change applies as part of this step. If the deploy failed,
-   don't say it's live: the previous version is still up — explain the reason in one
-   plain sentence and offer to fix it. If no deploy appears, check for a build
-   held at `pending_review` (see **save-preview** step 5): it needs the same one-time
-   admin OK, and the previous version stays up until then.
-5. **Make sure someone can get in.** If the live list is empty (first time live),
-   approve the builder's own work email with **who-can-get-in**, and tell them they
-   can approve others the same way.
+   **confirm it succeeded and is the one published**: its state is `ready`, and the
+   site's `published_deploy.commit_ref` (`netlify api getSite`) is the merged
+   commit. Ready but not published means publishing is paused on the site: say
+   the new version is ready but your admin has paused publishing, and never say
+   it's live. Any forward-only data change applies as part of this step. If the
+   deploy failed, don't say it's live: the previous version is still up — explain
+   the reason in one plain sentence and offer to fix it. If no deploy appears, check
+   for a build held at `pending_review` (see **save-preview** step 6): it needs the
+   same one-time admin OK, and the previous version stays up until then.
+5. **First time live:** tell them they can approve others the same way.
 
 ## Reply
 

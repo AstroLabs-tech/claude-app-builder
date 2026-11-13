@@ -15,12 +15,29 @@ Netlify — done entirely through the tools, never a dashboard.
    e.g. `netlify api listSiteDeploys` to find it, then `netlify api
    restoreSiteDeploy` (or the Netlify MCP rollback tool) to republish it.
 2. Republish that deploy as the live site and wait for it to take effect.
-3. The project's history on `main` is left untouched — this only changes what is
-   published.
+3. **Keep the problem from coming back.** Rolling back doesn't stop auto
+   publishing, and `main` still holds the faulty version, so the next "make it live"
+   would publish it again. Straight away, add the undo on top of the working line
+   as one new change (never rewrite history):
+   ```bash
+   GOOD=<commit_ref of the deploy you just republished>
+   git fetch origin
+   git switch preview 2>/dev/null || git switch -c preview origin/main
+   git diff --binary origin/main "$GOOD" | git apply --index --3way
+   git commit -m "Put back the version from before <the problem, in plain words>"
+   git push -u origin preview
+   ```
+   Then open or update the preview pull request as **save-preview** does. The diff
+   undoes exactly what `main` gained after the good version and leaves any
+   unpublished work on `preview` alone. If it doesn't apply cleanly, stop: the live
+   app is already back, so say that, and that the undo still needs saving before
+   the next "make it live". To bring a feature back later, fix it forward on the
+   preview.
 
 ## Reply
 
-> "Rolled back — your live app is the way it was before."
+> "Rolled back — your live app is the way it was before. I've also saved the undo,
+> so your next 'make it live' won't bring the problem back."
 
 ## Notes & never
 
@@ -28,4 +45,5 @@ Netlify — done entirely through the tools, never a dashboard.
   saved. If the problem was a data change, say so plainly and offer to fix it
   forward instead.
 - Never tell the builder to log into Netlify or open a dashboard.
-- Never rewrite history or force-push to undo — only republish the older deploy.
+- Never rewrite history or force-push to undo — republish the older deploy and add
+  the undo as a new change (step 3).

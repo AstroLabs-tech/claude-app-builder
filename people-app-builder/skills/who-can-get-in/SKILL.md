@@ -48,8 +48,10 @@ On Windows, end every `jq -r` whose output you store or loop over with
      until you have every entry — removal must see the whole list.
    - **Approve** (per email):
      `curl -s "${AUTH[@]}" -X POST "$API/allowlist_identifiers" -d "$(jq -n --arg e "$EMAIL" '{identifier:$e, notify:false}')"`
-     If that person was removed before, also lift the block on their account:
-     find them with `curl -s -G "${AUTH[@]}" "$API/users" --data-urlencode "email_address=$EMAIL" | jq -r '.[].id'`
+     If that person was removed before, also lift the block on their account, but
+     **only after the add answered 200 or "already exists"** (never unban someone
+     whose approval failed: a blocked account that isn't on the list could then sign
+     in). Find them with `curl -s -G "${AUTH[@]}" "$API/users" --data-urlencode "email_address=$EMAIL" | jq -r '.[].id'`
      (always URL-encode the email — a `+` in an address otherwise turns into a space)
      and `POST $API/users/<id>/unban` for each.
    - **Remove** (per email, on both lists): find the entry id
@@ -69,11 +71,35 @@ On Windows, end every `jq -r` whose output you store or loop over with
    `false`). Only report success for what you verified; name anyone that didn't go
    through.
 
+## Switch the list on
+
+Adding emails doesn't switch the list on. It only works once the app's approved-list
+setting is on. Switch it on and check the answer; it's safe to repeat:
+```bash
+ON=$(curl -s "${AUTH[@]}" -X PATCH "$API/instance/restrictions" -d '{"allowlist":true}' | jq -r .allowlist | tr -d '\r')
+[ "$ON" = true ] || echo "list not on — stop"
+```
+- Do it **after** at least the builder's own email is approved; otherwise nobody can
+  create an account.
+- If it doesn't come back `true`, stop and say *"Your admin needs to switch on the
+  approved-list setting for this app."*
+- Never tell the builder that only approved people can get in until this has come
+  back `true` for that list. **new-app**, **save-preview** and **make-it-live** run
+  this step too.
+
+Accounts made before the list was on can still sign in. List every account (page
+with `offset` as for the list) and compare its addresses, lowercased, with the list:
+```bash
+curl -s "${AUTH[@]}" "$API/users?limit=500&offset=0" | jq -r '.[] | .email_addresses[].email_address' | tr -d '\r'
+```
+Name anyone who isn't on the list and offer to block them (as in **Remove**).
+
 ## Reply
 
 > "Done — Sara can now sign in to the live app." / "Omar can't get in any more." /
 > "112 people approved for the live app; 2 lines weren't emails, so I skipped them:
-> …" / "These 14 people can sign in to the live app: …"
+> …" / "These 14 people are approved for the live app: …" (and, if any, "2 older
+> accounts aren't on the list and can still sign in — want me to block them?")
 
 ## Never
 
