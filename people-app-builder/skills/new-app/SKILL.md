@@ -29,9 +29,9 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
 4. **Connect the Netlify site — scripted, no prompts** (works the same on Windows
    and Mac). These are exactly the calls `netlify init` makes under the hood; doing
    them directly avoids its arrow-key menus, which can't be driven on Windows.
-   **Admin prerequisite (once per org):** the Netlify GitHub App is installed on
-   `AstroLabs-people` — if a step 404s, say *"Your admin needs to connect Netlify to the
-   team's GitHub once — I can't do that part,"* never a raw error.
+   If a GitHub step answers 404 or 403, the sign-in on this computer can't manage this
+   app's settings. Say *"Your access needs a fix from your admin — I can't do that
+   part,"* never a raw error.
 
    ```bash
    SLUG=<slug>; NAME=<globally-unique site name>; REPO="AstroLabs-people/$SLUG"
@@ -57,15 +57,16 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
      netlify api createHookBySiteId --data "$(jq -n --arg s "$SITE_ID" --arg e "$EV" --arg t "$(gh auth token)" \
        '{site_id:$s, body:{type:"github_commit_status", event:$e, data:{access_token:$t}}}')" >/dev/null
    done
-   # 6. link this folder to the site, then build it once
+   # 6. link this folder to the site (attaching the repo in step 3 already started the first build)
    netlify link --id "$SITE_ID"
-   netlify api createSiteBuild --data "$(jq -n --arg s "$SITE_ID" '{site_id:$s}')" >/dev/null
    ```
    Every call must succeed — stop at the first failure and explain it in one plain
-   sentence. Confirm with `netlify status` and that the site's
-   `build_settings.repo_path` is `AstroLabs-people/<slug>`. The first build has no live
-   sign-in yet, so the live address won't open until the admin adds the live codes —
-   that's expected.
+   sentence. Don't start another build: step 3 already did. Confirm with
+   `netlify status`, that the site's `build_settings.repo_path` is
+   `AstroLabs-people/<slug>`, and that the first build in
+   `netlify api listSiteBuilds --data '{"site_id":"…"}'` reaches `deploy_state: ready`.
+   The first build has no live sign-in yet, so the live address won't open until the
+   admin adds the live codes — that's expected.
 5. **Turn on sign-in.** People apps open only for approved people, through Clerk.
    Ask in plain words for the **two sign-in codes for testing** their admin made for
    this app (*"Paste the two sign-in codes your admin sent for this app — they start

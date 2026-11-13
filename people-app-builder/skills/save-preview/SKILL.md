@@ -30,6 +30,21 @@ Netlify builds for the open pull request. This never touches the live site.
    the pattern `https://deploy-preview-<PR-number>--<site-name>.netlify.app`.
    **Wait until that Netlify check has finished** before sharing — don't hand over
    a link that's still building.
+   If no preview appears within a few minutes, check whether Netlify is **holding**
+   it. A held build never shows in the normal list of deploys, only in the builds:
+   ```bash
+   SITE_ID=$(jq -r .siteId .netlify/state.json)
+   netlify api listSiteBuilds --data "{\"site_id\":\"$SITE_ID\"}" \
+     | jq -r --arg p "pull/<PR-number>/head" '[.[] | select(.sha==$p)][0].deploy_state' | tr -d '\r'
+   ```
+   `pending_review` means Netlify doesn't yet know this person's GitHub sign-in. It
+   happens once per person, on their first preview. Only an admin can clear it, so
+   tell the builder: *"Your first preview needs a one-time OK from your admin before
+   it can be built. Once they've approved it, it builds by itself — say 'save a
+   preview' again and I'll give you the link."* For the admin, give this exact path: the app in Netlify → **Deploys** → the held preview →
+   **Further action required** → **Approve and match with existing team member** → pick
+   the builder. Never suggest **Reject**: after a reject, every later preview from
+   that person needs approval again.
 6. If the build failed, don't share a broken link — read the reason, explain it
    in one plain sentence, and offer to fix it.
 

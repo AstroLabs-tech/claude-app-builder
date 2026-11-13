@@ -32,7 +32,9 @@ Publish the previewed version to the live app. This is the one action that
    **confirm it succeeded** (its state is `ready` for the merged version). Any
    forward-only data change applies as part of this step. If the deploy failed,
    don't say it's live: the previous version is still up — explain the reason in one
-   plain sentence and offer to fix it.
+   plain sentence and offer to fix it. If no deploy appears, check for a build
+   held at `pending_review` (see **save-preview** step 5): it needs the same one-time
+   admin OK, and the previous version stays up until then.
 5. **Make sure someone can get in.** If the live list is empty (first time live),
    approve the builder's own work email with **who-can-get-in**, and tell them they
    can approve others the same way.
