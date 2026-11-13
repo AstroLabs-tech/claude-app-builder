@@ -39,8 +39,10 @@ permission — click Yes"* before each one and wait.
    `winget install -e --id Git.Git …`. If you were on PowerShell only, ask the builder
    to **close and reopen the Claude app**, then continue in a new session (it now has
    Git Bash). Then set `git config --global core.autocrlf false`.
-2. **Check what's already here** (in Git Bash): `node --version`, `gh --version`,
-   `netlify --version`, `jq --version`. Install only what's missing:
+2. **Check what's already here** (in Git Bash). Node first, and fix it (below)
+   before checking the rest: the Netlify CLI fails to start on an old Node, which
+   looks like it's missing. Then `gh --version`, `netlify --version`,
+   `jq --version`. Install only what's missing:
    - **Node:** needed at **22.13 or newer** (the Netlify CLI requires it), so check
      the version, not just that it's there. Missing → `winget install -e --id
      OpenJS.NodeJS.LTS …`; older → `winget upgrade -e --id OpenJS.NodeJS.LTS …` (if

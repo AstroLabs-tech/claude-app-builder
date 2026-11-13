@@ -11,8 +11,11 @@ Netlify builds for the open pull request. This never touches the live site.
 
 ## Steps
 
-1. **Check for someone else's work in progress.** If the app already has an open
-   preview/PR from another person, say so plainly and ask before continuing:
+1. **Check for someone else's work in progress.** Everyone shares one GitHub login,
+   so look at who wrote the changes, not who opened the pull request:
+   `gh pr list --head preview --state open --json number,commits --jq '.[].commits[].authors[].email'`.
+   If any of those emails isn't this builder's (`git config --global user.email`),
+   say so plainly and ask before continuing:
    *"Heads up — Sam already has a change in progress on this app. Want to build on
    top of theirs, or wait?"* (One owner at a time per app.)
 2. **Move onto the working line before saving.** Unsaved changes come along when
@@ -20,26 +23,28 @@ Netlify builds for the open pull request. This never touches the live site.
    `git switch -c preview --track origin/preview` if it exists only on GitHub,
    otherwise `git switch -c preview origin/main`. If it exists both here and on
    GitHub, bring this copy up to date with `git merge --ff-only origin/preview`.
-   If the switch or that update refuses because the changes clash, stop and
-   explain plainly. **Don't say any of these words to
-   the builder.**
+   Then bring in anything newer on the live line: `git merge --no-edit origin/main`
+   (a normal merge, never a rebase). If the switch or a merge refuses because the
+   changes clash, stop and explain plainly. **Don't say any of these words to the
+   builder.**
 3. **Save the work.** Stage everything and commit with a short, plain message
    describing what changed (e.g. "Add a contact form"). The builder's name is the
    author; the `Co-Authored-By: Claude` trailer stays on. If nothing changed
    **and** nothing saved here is still waiting to go up (`git log --oneline
    origin/preview..preview` is empty, or with no `preview` on GitHub yet,
    `git log --oneline origin/main..preview` is empty):
-   - an open preview pull request already exists → skip to step 6 and re-share its
-     link;
+   - an open preview pull request already exists → run step 4 (the list check),
+     then skip to step 6 and re-share its link;
    - no open preview → say *"There's nothing new to preview yet — it's the same as
      your live app. Tell me what to change first."* and stop.
 
    If something saved is still waiting to go up (say, after a failed push), carry
    on to step 4.
-4. **Make sure only approved testers can open it.** Switch the test list on
-   (**who-can-get-in** → *Switch the list on*, `CTX=dev`). If there are no test
-   codes or the list doesn't come back on, stop before pushing and say the admin
-   needs to finish setting up sign-in for this app.
+4. **Make sure only approved testers can open it.** Run who-can-get-in → *Switch
+   the list on* for the test list (`CTX=dev`), including its account check. If
+   there are no test codes, stop and say the admin needs to finish setting up
+   sign-in for this app. If the list doesn't come back on, or unapproved accounts
+   are left, stop before pushing and sort that out with the builder first.
 5. **Push `preview` and open or update the pull request** into `main`
    (`gh pr create` if none is open; an existing one updates itself on push).
 6. **Get the preview link.** Netlify builds a deploy preview for that PR

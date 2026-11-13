@@ -24,22 +24,27 @@ API — the builder never opens a dashboard.
 On Windows, end every `jq -r` whose output you store or loop over with
 `| tr -d '\r'` — jq there adds an invisible `\r` to each line.
 
+**Each command runs in a fresh shell**, so variables and `set -o pipefail` don't
+carry over from one call to the next. Put step 1 and everything that uses its
+`AUTH` / `API` / `LIST` in **one** call.
+
 1. **Read the admin code for that list from the app's site, without printing it:**
    ```bash
    set -o pipefail
    CTX=production   # live list; use CTX=dev for the test list
    SK=$(netlify env:get CLERK_SECRET_KEY --context "$CTX" --json | jq -er '.CLERK_SECRET_KEY // ""' | tr -d '\r') \
      || { echo "couldn't read this app's settings — stop" >&2; exit 1; }
-   [ -n "$SK" ] || echo "no sign-in code for $CTX"
+   [ -n "$SK" ] || { echo "no sign-in code for $CTX" >&2; exit 3; }
    API=https://api.clerk.com/v1
    AUTH=(-H "Authorization: Bearer $SK" -H "Content-Type: application/json")
    ```
    Always use `--json`: without it a missing value prints a "No value set…"
    sentence that looks like a code. If the read itself fails, stop; never treat a
    failed read as "no list" (a removal would then skip a list that exists).
-   No code (an empty answer from a successful read) → that list doesn't exist yet. For the live list say: *"The live sign-in
-   isn't set up yet — your admin needs to finish it."* For the test list: *"Your
-   admin still needs to set up sign-in for this app."*
+   No code (an empty answer from a successful read, exit 3) → that list doesn't
+   exist yet. For the live list say: *"The live sign-in isn't set up yet — your
+   admin needs to finish it."* For the test list: *"Your admin still needs to set up
+   sign-in for this app."* A removal still goes ahead on the list that does exist.
 
 2. **Clean the emails.** Trim, lowercase, one per line; drop duplicates and anything
    that isn't an email. If they paste a sheet, take the email column only. Read the
@@ -53,6 +58,8 @@ On Windows, end every `jq -r` whose output you store or loop over with
      while :; do
        R=$(curl -sf "${AUTH[@]}" "$API/allowlist_identifiers?paginated=true&limit=500&offset=$OFF") \
          || { echo "couldn't read the list — stop" >&2; exit 1; }
+       jq -e '(.data | type == "array") and (.total_count | type == "number")' <<<"$R" >/dev/null \
+         || { echo "unexpected reply — stop" >&2; exit 1; }
        LIST+=$(jq -r '.data[] | "\(.id) \(.identifier)"' <<<"$R" | tr -d '\r')$'\n'
        TOTAL=$(jq -r .total_count <<<"$R" | tr -d '\r'); OFF=$((OFF+500))
        [ "$OFF" -lt "$TOTAL" ] || break
@@ -60,21 +67,33 @@ On Windows, end every `jq -r` whose output you store or loop over with
      ```
      Each line of `$LIST` is an entry id, then its email. Keep it in memory only;
      never write it to a file.
-   - **Approve** (per email):
-     `curl -s "${AUTH[@]}" -X POST "$API/allowlist_identifiers" -d "$(jq -n --arg e "$EMAIL" '{identifier:$e, notify:false}')"`
+   - **Approve** (per email), keeping the answer and its status:
+     ```bash
+     OUT=$(curl -s -w '\n%{http_code}' "${AUTH[@]}" -X POST "$API/allowlist_identifiers" \
+       -d "$(jq -n --arg e "$EMAIL" '{identifier:$e, notify:false}')")
+     CODE=${OUT##*$'\n'}   # 200 = added; a 4xx saying it already exists = already approved
+     ```
      If that person was removed before, also lift the block on their account, but
      **only after the add answered 200 or "already exists"** (never unban someone
      whose approval failed: a blocked account that isn't on the list could then sign
-     in). Find them with `curl -sf -G "${AUTH[@]}" "$API/users" --data-urlencode "email_address=$EMAIL" | jq -r '.[].id'`
-     (always URL-encode the email — a `+` in an address otherwise turns into a space)
-     and `POST $API/users/<id>/unban` for each (no id back just means no account
-     yet). If that lookup fails (curl or jq errors), say the approval went through but the old block couldn't be checked.
-   - **Remove** (per email, on both lists): find the entry id in the full list
-     above, `DELETE $API/allowlist_identifiers/<id>`, then block any account they
-     already made — find it by email as above and `POST $API/users/<id>/ban` for
-     each. If the account lookup fails (curl or jq errors), the removal is **not
-     done**: say so, and never report someone as removed without having checked
-     for their account.
+     in). Look them up in two checked steps (always URL-encode the email, since a
+     `+` in an address otherwise turns into a space):
+     ```bash
+     U=$(curl -sf -G "${AUTH[@]}" "$API/users" --data-urlencode "email_address=$EMAIL") || exit 1
+     jq -e 'type == "array"' <<<"$U" >/dev/null || exit 1
+     ```
+     Then `POST $API/users/<id>/unban` only for accounts where **this address is
+     verified**:
+     `jq -r --arg e "$EMAIL" '.[] | select(any(.email_addresses[]; (.email_address | ascii_downcase) == $e and .verification.status == "verified")) | .id' <<<"$U"`.
+     An empty array just means no account yet. If that lookup fails (curl or jq errors), say the approval went through
+     but the old block couldn't be checked.
+   - **Remove** (per email, on both lists), in this order: first look up any
+     account they made, with the two checked steps above. That lookup must succeed;
+     if either step fails, stop, because the removal is **not done**. Block every
+     account the lookup returns, verified or not. Then find the entry id
+     in the full list above (compare emails lowercased), `DELETE $API/allowlist_identifiers/<id>`, and
+     `POST $API/users/<id>/ban` for each account found. Never report someone as
+     removed without having checked for their account.
      The list only controls who can **create** an account, so removing someone
      without blocking their account would leave them able to sign in.
      If the list approves a **whole domain** that covers this person, deleting their
@@ -90,11 +109,15 @@ On Windows, end every `jq -r` whose output you store or loop over with
 
 ## Switch the list on
 
+Run this in the **same call** as step 1 (for this list's `CTX`) and the **List**
+loop from step 3: it needs their `AUTH`, `API` and `LIST`.
 Adding emails doesn't switch the list on. It only works once the app's approved-list
 setting is on. Switch it on and check the answer; it's safe to repeat:
 ```bash
-ON=$(curl -s "${AUTH[@]}" -X PATCH "$API/instance/restrictions" -d '{"allowlist":true}' | jq -r .allowlist | tr -d '\r')
-[ "$ON" = true ] || echo "list not on — stop"
+R=$(curl -sf "${AUTH[@]}" -X PATCH "$API/instance/restrictions" -d '{"allowlist":true}') \
+  || { echo "couldn't change the list setting (check the sign-in code) — stop" >&2; exit 1; }
+ON=$(jq -r .allowlist <<<"$R" | tr -d '\r')
+[ "$ON" = true ] || { echo "list not on — stop" >&2; exit 1; }
 ```
 - Do it **after** at least the builder's own email is approved; otherwise nobody can
   create an account.
@@ -105,14 +128,20 @@ ON=$(curl -s "${AUTH[@]}" -X PATCH "$API/instance/restrictions" -d '{"allowlist"
 
 **Then check the accounts that already exist** — the list only stops new accounts,
 so one made before the list was on can still sign in. List every account that isn't
-blocked (page with `offset=500`, `1000`, … until a page comes back with fewer than
-500) and compare its addresses, lowercased, with the full list:
+blocked and compare its **verified** addresses, lowercased, with `$LIST` (an
+unverified address proves nothing: anyone can add one):
 ```bash
-curl -sf "${AUTH[@]}" "$API/users?limit=500&offset=0" \
-  | jq -r '.[] | select(.banned | not) | "\(.id) \([.email_addresses[].email_address] | join(","))"' | tr -d '\r'
+OFF=0
+while :; do
+  P=$(curl -sf "${AUTH[@]}" "$API/users?limit=500&offset=$OFF") || { echo "couldn't read accounts — stop" >&2; exit 1; }
+  N=$(jq -er 'if type == "array" then length else error("unexpected reply") end' <<<"$P") || exit 1
+  jq -r '.[] | select(.banned | not) | "\(.id) \([.email_addresses[] | select(.verification.status == "verified") | .email_address] | join(","))"' <<<"$P" | tr -d '\r'
+  [ "$N" -eq 500 ] || break; OFF=$((OFF+500))   # page on the raw page size, not the filtered lines
+done
 ```
-If that read fails, treat it as not checked. Any account with no approved address
-is **unapproved access**: name those people to the builder and ask whether to
+If that read fails, treat it as not checked. An address is approved when the list
+holds it (lowercased) or holds a whole-domain entry that covers it. Any account with
+no verified approved address is **unapproved access**: name those people to the builder and ask whether to
 approve or block each one, then do it. The list only counts as on when the switch
 came back `true` **and** no unapproved account is left. Until then, never say only
 approved people can get in.

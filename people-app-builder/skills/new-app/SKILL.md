@@ -1,6 +1,6 @@
 ---
 name: new-app
-description: Create and wire up a brand-new People-team app from the template. Use when the builder says "start a new app called X", "begin a new project called Y", "create a new app for Z", or otherwise wants to start something new from scratch. (If they already have a prototype, artifact or app, use adopt-existing-app.)
+description: Create and wire up a brand-new People-team app (in AstroLabs-people, for employee data such as reviews) from the template. For an Ops app, use app-builder's new-app instead. Use when the builder says "start a new app called X", "begin a new project called Y", "create a new app for Z", or otherwise wants to start something new from scratch. (If they already have a prototype, artifact or app, use adopt-existing-app.)
 ---
 
 # new-app
@@ -11,7 +11,9 @@ the one-time platform setup is done (see the template's SETUP.md) and this machi
 is signed in as the People team account.
 
 Fixed for every People app: GitHub org **`AstroLabs-people`**, template
-**`AstroLabs-people/app-starter`**, Netlify team **AstroLabs People**.
+**`AstroLabs-people/app-starter`**, Netlify team **AstroLabs People**. If the Ops
+app-builder is installed too and it isn't clear the app is for the People team,
+ask which team it's for before creating anything.
 
 ## Steps
 
@@ -25,7 +27,10 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    `gh repo create "AstroLabs-people/<slug>" --template "AstroLabs-people/app-starter" --private`
    then `git clone "https://github.com/AstroLabs-people/<slug>.git" && cd <slug>`.
    (If the clone races the template copy and lands empty, just retry it.)
-3. **Set up the machine for this app:** `bash scripts/bootstrap.sh`.
+3. **Set up the machine for this app:** `bash scripts/bootstrap.sh`. It only asks
+   for a name and email if set-up-my-computer hasn't set them; if it stops to ask,
+   set them with `git config --global` (their own name and work email) and run it
+   again, rather than answering its prompt.
 4. **Connect the Netlify site — scripted, no prompts** (works the same on Windows
    and Mac). These are exactly the calls `netlify init` makes under the hood; doing
    them directly avoids its arrow-key menus, which can't be driven on Windows.
@@ -36,44 +41,55 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    ```bash
    set -eo pipefail   # any failed call, even inside a pipe, stops everything after it
    SLUG=<slug>; NAME=<globally-unique site name>; REPO="AstroLabs-people/$SLUG"
-   ACCT=$(netlify api listAccountsForUser | jq -r '.[] | select(.name=="AstroLabs People") | .slug' | tr -d '\r')
-   [ -n "$ACCT" ] || { echo "not on the AstroLabs People team" >&2; exit 1; }
-   # 1. the site, in the People team (on "name already taken", retry with a suffix)
-   SITE_ID=$(netlify api createSiteInTeam --data "$(jq -n --arg a "$ACCT" --arg n "$NAME" '{account_slug:$a, body:{name:$n}}')" | jq -r .id | tr -d '\r')
+   ACCT=$(netlify api listAccountsForUser | jq -er '.[] | select(.name=="AstroLabs People") | .slug' | tr -d '\r')
+   # 1. the site, in the People team
+   SITE_ID=$(netlify api createSiteInTeam --data "$(jq -n --arg a "$ACCT" --arg n "$NAME" '{account_slug:$a, body:{name:$n}}')" | jq -er .id | tr -d '\r')
+   echo "site $SITE_ID"   # note it: you need it if a later call fails
    # 2. a read-only deploy key, registered on the repo
    KEY=$(netlify api createDeployKey)
-   KEY_ID=$(jq -r .id <<<"$KEY" | tr -d '\r'); PUB=$(jq -r .public_key <<<"$KEY" | tr -d '\r')
+   KEY_ID=$(jq -er .id <<<"$KEY" | tr -d '\r'); PUB=$(jq -er .public_key <<<"$KEY" | tr -d '\r')
    gh api -X POST "repos/$REPO/keys" -f title="Netlify Deploy Key" -f key="$PUB" -F read_only=true >/dev/null
    # 3. attach the repo and Netlify's Next.js runtime (without it every page is a 404);
    #    Netlify answers with the site's deploy hook URL
    REPO_ID=$(gh api "repos/$REPO" --jq .id)
    HOOK=$(netlify api updateSite --data "$(jq -n --arg s "$SITE_ID" --argjson rid "$REPO_ID" --arg k "$KEY_ID" --arg p "$REPO" \
      '{site_id:$s, body:{repo:{id:$rid, provider:"github", repo_path:$p, repo_branch:"main", allowed_branches:["main"], deploy_key_id:$k, cmd:"npm run build", dir:".next"}, plugins:[{package:"@netlify/plugin-nextjs"}]}}')" \
-     | jq -r .deploy_hook | tr -d '\r')
-   [ -n "$HOOK" ] && [ "$HOOK" != null ] || { echo "no deploy hook returned" >&2; exit 1; }
+     | jq -er .deploy_hook | tr -d '\r')
    # 4. GitHub tells Netlify about pushes and pull requests (this is what makes previews fire)
    gh api -X POST "repos/$REPO/hooks" -f name=web -f "config[url]=$HOOK" -f "config[content_type]=json" \
      -f "events[]=push" -f "events[]=pull_request" -f "events[]=delete" -F active=true >/dev/null
    # 5. Netlify reports build status back on GitHub
+   # the same GitHub token netlify init stores; Netlify uses it only to post build status
+   TOK=$(gh auth token); [ -n "$TOK" ]   # its own line, so a failure stops here
    for EV in deploy_created deploy_failed deploy_building; do
-     netlify api createHookBySiteId --data "$(jq -n --arg s "$SITE_ID" --arg e "$EV" --arg t "$(gh auth token)" \
+     netlify api createHookBySiteId --data "$(jq -n --arg s "$SITE_ID" --arg e "$EV" --arg t "$TOK" \
        '{site_id:$s, body:{type:"github_commit_status", event:$e, data:{access_token:$t}}}')" >/dev/null
    done
    # 6. link this folder to the site (attaching the repo in step 3 already started the first build)
    netlify link --id "$SITE_ID"
    ```
-   Every call must succeed — stop at the first failure and explain it in one plain
-   sentence. Don't start another build: step 3 already did. Confirm with
+   Every call must succeed. `jq -e` stops on a missing field, so a `null` id never
+   slips through. At the first failure, stop and explain it in one plain sentence.
+   - If the **site name is taken** (the first call fails that way), run the block
+     again with a suffixed `NAME`; nothing else was created yet.
+   - If a **later** call fails, don't re-run from the top, because that would make
+     a second site. Fix the cause and carry on from the failed step with the same
+     `SITE_ID` (and `KEY_ID` / `HOOK`, re-read from the site if needed).
+
+   Don't start another build: step 3 already did. Confirm with
    `netlify status`, that the site's `build_settings.repo_path` is
    `AstroLabs-people/<slug>`, that the site's `plugins` include
    `@netlify/plugin-nextjs`, and that the first build in
-   `netlify api listSiteBuilds --data '{"site_id":"…"}'` reaches `deploy_state: ready`.
+   `netlify api listSiteBuilds --data '{"site_id":"…"}'` reaches `deploy_state: ready`
+   (`done: true`, no `error`).
    The first build has no live sign-in yet, so the live address won't open until the
    admin adds the live codes — that's expected.
 5. **Turn on sign-in.** People apps open only for approved people, through Clerk.
    Ask in plain words for the **two sign-in codes for testing** their admin made for
    this app (*"Paste the two sign-in codes your admin sent for this app — they start
-   with pk_test_ and sk_test_."*). Store them for local runs and previews only:
+   with pk_test_ and sk_test_."*). Check they really start with `pk_test_` and
+   `sk_test_`; if not, stop and ask again, because a live code never goes on
+   previews. Store them for local runs and previews only:
 
    ```bash
    netlify env:set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY '<pk_test_…>' --context dev deploy-preview branch-deploy >/dev/null
@@ -86,8 +102,9 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    needs to set up sign-in for this app — once they send the two codes, you'll be
    able to open it."*
 
-   If you stored the test codes, put the builder's own work email on the approved list (the
-   **who-can-get-in** skill, test list) so they can sign in to their own app, and
+   If you stored the test codes, put the builder's own work email
+   (`git config --global user.email`) on the approved list (the **who-can-get-in**
+   skill, test list) so they can sign in to their own app, and
    **switch that list on** (who-can-get-in → *Switch the list on*). If it doesn't
    come back on, stop and say the admin needs to switch on the approved-list setting.
    With no test codes yet, skip both; do them as soon as the codes arrive.

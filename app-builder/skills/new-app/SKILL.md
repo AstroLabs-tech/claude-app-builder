@@ -1,6 +1,6 @@
 ---
 name: new-app
-description: Create and wire up a brand-new app from the template. Use when the builder says "start a new app called X", "begin a new project called Y", "create a new app for Z", or otherwise wants to start something new from scratch.
+description: Create and wire up a brand-new app (for any team except People) from the template. Not for People-team apps (employee data, AstroLabs-people) — those use people-app-builder's new-app. Use when the builder says "start a new app called X", "begin a new project called Y", "create a new app for Z", or otherwise wants to start something new from scratch.
 ---
 
 # new-app
@@ -8,6 +8,11 @@ description: Create and wire up a brand-new app from the template. Use when the 
 Provision a fresh app: a private repo from the template, set up on this machine,
 connected to its own Netlify site. Assumes the one-time platform setup is done
 (see SETUP.md) and this machine is signed in as the team account.
+
+> **Not for People apps.** If the app is for the People team (or the builder's org
+> is `AstroLabs-people`), stop and use the **people-app-builder** plugin's
+> **new-app**. If both plugins are installed and the team isn't clear, ask which
+> team the app is for before creating anything.
 
 ## Steps
 

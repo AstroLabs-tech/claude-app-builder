@@ -100,4 +100,5 @@ Install (People builders, once), in the Claude Code tab:
 Admin setup (org, team account, Netlify team, one Clerk application per app with
 test and live codes) is in the People template's `SETUP.md`. If you have both
 plugins installed, the People skills apply to apps in `AstroLabs-people`; the Ops
-skills to everything else.
+skills to everything else. A new app has no repo yet, so with both installed the
+skills ask which team it's for before creating anything.

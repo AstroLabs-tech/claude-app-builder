@@ -21,7 +21,7 @@ Start the app on the builder's machine and hand back the private link.
    [ -n "$PK" ] && [ -n "$SK" ] || { echo "no test sign-in codes — stop" >&2; exit 1; }
    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$PK" CLERK_SECRET_KEY="$SK" npm run dev
    ```
-   This is Next.js, so it serves the whole app at **http://localhost:3000**.
+   This is Next.js, so it serves the whole app, usually at http://localhost:3000.
    - If the check stops it, sign-in isn't set up for this app yet: say *"Your
      admin still needs to set up sign-in for this app — once they send the two
      codes, I can show it to you,"* and stop. Never work around it by switching

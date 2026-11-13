@@ -28,14 +28,21 @@ Publish the previewed version to the live app. This is the one action that
    to finish it (it needs the app's real web address). Your preview keeps working
    in the meantime."* Never publish with test codes, and never publish without sign-in.
 
-   Then make sure someone can get in and nobody else can: if the live list is empty
-   (first time live), approve the builder's own work email (**who-can-get-in**, live
-   list), then **switch the live list on** (who-can-get-in → *Switch the list on*,
-   `CTX=production`). If it doesn't come back on, stop — don't publish.
-3. **Check it's safe to publish.** There must be an open preview pull request and
-   its checks must be green. Never publish a change whose preview didn't build.
-4. **Publish.** Merge the preview pull request into `main`. Netlify deploys `main`
-   to the live app automatically — wait for that production deploy to finish and
+   Then, **every time**, make sure someone can get in and nobody else can. Read the
+   full live list (who-can-get-in → **List**, `CTX=production`); if that read fails,
+   stop. If the list is empty (first time live), approve the builder's own work
+   email. Then, whether or not it was empty, run
+   who-can-get-in → *Switch the list on* with `CTX=production`, including its
+   account check. If it doesn't pass, stop — don't publish.
+3. **Check it's safe to publish.** There must be an open pull request from
+   `preview` into `main`, and every check on it must have passed
+   (`gh pr checks <number>`), including Netlify's preview. Never publish a change
+   whose preview didn't build.
+4. **Publish.** Merge it with a normal merge (`gh pr merge <number> --merge`; never
+   squash or rebase, so each live version maps to a commit on `main`). Netlify
+   deploys `main` to the live app automatically. Find that production deploy by the
+   merge commit (`gh pr view <number> --json mergeCommit`, matched to `commit_ref` in
+   `netlify api listSiteDeploys`), wait for it to finish, and
    **confirm it succeeded and is the one published**: its state is `ready`, and the
    site's `published_deploy.commit_ref` (`netlify api getSite`) is the merged
    commit. Ready but not published means publishing is paused on the site: say

@@ -10,17 +10,27 @@ Netlify — done entirely through the tools, never a dashboard.
 
 ## Steps
 
-1. Find the previous successful **production** deploy (Netlify keeps every past
-   deploy). List them, then pick the one before the current live version —
-   e.g. `netlify api listSiteDeploys` to find it, then `netlify api
-   restoreSiteDeploy` (or the Netlify MCP rollback tool) to republish it.
-2. Republish that deploy as the live site and wait for it to take effect.
+1. **Find the version before the current live one.** Netlify keeps every past
+   deploy. Take the newest ready **production** deploy older than the one now
+   published:
+   ```bash
+   set -eo pipefail
+   SITE_ID=$(jq -er .siteId .netlify/state.json | tr -d '\r')
+   CUR=$(netlify api getSite --data "{\"site_id\":\"$SITE_ID\"}" | jq -er .published_deploy.id | tr -d '\r')
+   PREV=$(netlify api listSiteDeploys --data "{\"site_id\":\"$SITE_ID\"}" \
+     | jq -er --arg c "$CUR" '[.[] | select(.context == "production" and .state == "ready")] as $d
+         | ($d | map(.id) | index($c)) as $i | $d[$i + 1] | .id' | tr -d '\r')
+   ```
+   If there's no earlier version, say there's nothing to go back to and stop.
+2. **Republish it** with `netlify api restoreSiteDeploy --data '{"site_id":"…","deploy_id":"…"}'`,
+   then confirm the site's `published_deploy.id` is now `$PREV`. Only then is it
+   rolled back.
 3. **Keep the problem from coming back.** Rolling back doesn't stop auto
    publishing, and `main` still holds the faulty version, so the next "make it live"
    would publish it again. Straight away, add the undo on top of the working line
    as one new change (never rewrite history):
    ```bash
-   GOOD=<commit_ref of the deploy you just republished>
+   GOOD=<commit_ref of $PREV>
    git fetch origin
    # get onto `preview` exactly as save-preview step 2 does (GitHub's copy if it has one)
    git diff --binary origin/main "$GOOD" | git apply --index --3way
@@ -38,6 +48,9 @@ Netlify — done entirely through the tools, never a dashboard.
 
 > "Rolled back — your live app is the way it was before. I've also saved the undo,
 > so your next 'make it live' won't bring the problem back."
+
+Only mention the saved undo if step 3 worked; otherwise say the live app is back
+and the undo still needs saving before the next "make it live".
 
 ## Notes & never
 
