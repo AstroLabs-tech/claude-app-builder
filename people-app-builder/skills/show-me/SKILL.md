@@ -14,8 +14,10 @@ Start the app on the builder's machine and hand back the private link.
 2. Start the dev server in the background **with the app's test sign-in codes**
    passed straight from the app's site (nothing written to disk):
    ```bash
-   PK=$(netlify env:get NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY --context dev)
-   SK=$(netlify env:get CLERK_SECRET_KEY --context dev)
+   set -o pipefail
+   get() { netlify env:get "$1" --context dev --json | jq -er --arg k "$1" '.[$k] // ""' | tr -d '\r'; }
+   PK=$(get NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) && SK=$(get CLERK_SECRET_KEY) \
+     || { echo "couldn't read this app's settings — stop" >&2; exit 1; }
    [ -n "$PK" ] && [ -n "$SK" ] || { echo "no test sign-in codes — stop" >&2; exit 1; }
    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$PK" CLERK_SECRET_KEY="$SK" npm run dev
    ```
@@ -32,7 +34,7 @@ Start the app on the builder's machine and hand back the private link.
 
 ## Reply
 
-> "Here you go: http://localhost:3000 — this is running just on your computer and
+> "Here you go: <the address this server printed> — this is running just on your computer and
 > updates live as we change things. Sign in with your work account; only you can
 > see this one."
 

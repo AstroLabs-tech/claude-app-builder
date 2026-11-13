@@ -18,16 +18,24 @@ Netlify builds for the open pull request. This never touches the live site.
 2. **Move onto the working line before saving.** Unsaved changes come along when
    you switch. After `git fetch origin`: `git switch preview` if it exists here,
    `git switch -c preview --track origin/preview` if it exists only on GitHub,
-   otherwise `git switch -c preview origin/main`. If the switch refuses because
-   the changes clash, stop and explain plainly. **Don't say any of these words to
+   otherwise `git switch -c preview origin/main`. If it exists both here and on
+   GitHub, bring this copy up to date with `git merge --ff-only origin/preview`.
+   If the switch or that update refuses because the changes clash, stop and
+   explain plainly. **Don't say any of these words to
    the builder.**
 3. **Save the work.** Stage everything and commit with a short, plain message
    describing what changed (e.g. "Add a contact form"). The builder's name is the
-   author; the `Co-Authored-By: Claude` trailer stays on. If nothing changed:
+   author; the `Co-Authored-By: Claude` trailer stays on. If nothing changed
+   **and** nothing saved here is still waiting to go up (`git log --oneline
+   origin/preview..preview` is empty, or with no `preview` on GitHub yet,
+   `git log --oneline origin/main..preview` is empty):
    - an open preview pull request already exists → skip to step 6 and re-share its
      link;
    - no open preview → say *"There's nothing new to preview yet — it's the same as
      your live app. Tell me what to change first."* and stop.
+
+   If something saved is still waiting to go up (say, after a failed push), carry
+   on to step 4.
 4. **Make sure only approved testers can open it.** Switch the test list on
    (**who-can-get-in** → *Switch the list on*, `CTX=dev`). If there are no test
    codes or the list doesn't come back on, stop before pushing and say the admin

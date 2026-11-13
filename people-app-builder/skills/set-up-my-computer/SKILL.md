@@ -41,7 +41,11 @@ permission — click Yes"* before each one and wait.
    Git Bash). Then set `git config --global core.autocrlf false`.
 2. **Check what's already here** (in Git Bash): `node --version`, `gh --version`,
    `netlify --version`, `jq --version`. Install only what's missing:
-   - **Node:** `winget install -e --id OpenJS.NodeJS.LTS …` — then run the PATH export
+   - **Node:** needed at **22.13 or newer** (the Netlify CLI requires it), so check
+     the version, not just that it's there. Missing → `winget install -e --id
+     OpenJS.NodeJS.LTS …`; older → `winget upgrade -e --id OpenJS.NodeJS.LTS …` (if
+     that Node didn't come from winget, install the LTS and make sure `node --version`
+     shows 22.13+ after the PATH export) — then run the PATH export
      from step 3 **right away**, before anything that needs `npm`.
    - **GitHub CLI:** `winget install -e --id GitHub.cli …`
    - **jq:** `winget install -e --id jqlang.jq …`

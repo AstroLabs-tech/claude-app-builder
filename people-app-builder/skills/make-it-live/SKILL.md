@@ -17,8 +17,10 @@ Publish the previewed version to the live app. This is the one action that
    never go live without its own live sign-in. Check, without printing the values,
    that the live codes exist and are live ones:
    ```bash
-   PK=$(netlify env:get NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY --context production)
-   SK=$(netlify env:get CLERK_SECRET_KEY --context production)
+   set -o pipefail
+   get() { netlify env:get "$1" --context production --json | jq -er --arg k "$1" '.[$k] // ""' | tr -d '\r'; }
+   PK=$(get NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) && SK=$(get CLERK_SECRET_KEY) \
+     || { echo "couldn't read this app's settings — stop, don't publish" >&2; exit 1; }
    [[ $PK == pk_live_* && $SK == sk_live_* ]] \
      || { echo "live sign-in not ready — stop, don't publish" >&2; exit 1; }
    ```

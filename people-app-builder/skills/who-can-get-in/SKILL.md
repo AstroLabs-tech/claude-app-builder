@@ -26,13 +26,18 @@ On Windows, end every `jq -r` whose output you store or loop over with
 
 1. **Read the admin code for that list from the app's site, without printing it:**
    ```bash
+   set -o pipefail
    CTX=production   # live list; use CTX=dev for the test list
-   SK=$(netlify env:get CLERK_SECRET_KEY --context "$CTX")
+   SK=$(netlify env:get CLERK_SECRET_KEY --context "$CTX" --json | jq -er '.CLERK_SECRET_KEY // ""' | tr -d '\r') \
+     || { echo "couldn't read this app's settings — stop" >&2; exit 1; }
    [ -n "$SK" ] || echo "no sign-in code for $CTX"
    API=https://api.clerk.com/v1
    AUTH=(-H "Authorization: Bearer $SK" -H "Content-Type: application/json")
    ```
-   No code → that list doesn't exist yet. For the live list say: *"The live sign-in
+   Always use `--json`: without it a missing value prints a "No value set…"
+   sentence that looks like a code. If the read itself fails, stop; never treat a
+   failed read as "no list" (a removal would then skip a list that exists).
+   No code (an empty answer from a successful read) → that list doesn't exist yet. For the live list say: *"The live sign-in
    isn't set up yet — your admin needs to finish it."* For the test list: *"Your
    admin still needs to set up sign-in for this app."*
 
@@ -42,22 +47,34 @@ On Windows, end every `jq -r` whose output you store or loop over with
    all?"*).
 
 3. **Do it:**
-   - **List:**
-     `curl -s "${AUTH[@]}" "$API/allowlist_identifiers?paginated=true&limit=500&offset=0" | jq -r '(.data // .)[] | .identifier'`
-     If `total_count` is more than you've read, repeat with `offset=500`, `1000`, …
-     until you have every entry — removal must see the whole list.
+   - **List** — page until you have every entry; removal must see the whole list:
+     ```bash
+     OFF=0; LIST=""
+     while :; do
+       R=$(curl -sf "${AUTH[@]}" "$API/allowlist_identifiers?paginated=true&limit=500&offset=$OFF") \
+         || { echo "couldn't read the list — stop" >&2; exit 1; }
+       LIST+=$(jq -r '.data[] | "\(.id) \(.identifier)"' <<<"$R" | tr -d '\r')$'\n'
+       TOTAL=$(jq -r .total_count <<<"$R" | tr -d '\r'); OFF=$((OFF+500))
+       [ "$OFF" -lt "$TOTAL" ] || break
+     done
+     ```
+     Each line of `$LIST` is an entry id, then its email. Keep it in memory only;
+     never write it to a file.
    - **Approve** (per email):
      `curl -s "${AUTH[@]}" -X POST "$API/allowlist_identifiers" -d "$(jq -n --arg e "$EMAIL" '{identifier:$e, notify:false}')"`
      If that person was removed before, also lift the block on their account, but
      **only after the add answered 200 or "already exists"** (never unban someone
      whose approval failed: a blocked account that isn't on the list could then sign
-     in). Find them with `curl -s -G "${AUTH[@]}" "$API/users" --data-urlencode "email_address=$EMAIL" | jq -r '.[].id'`
+     in). Find them with `curl -sf -G "${AUTH[@]}" "$API/users" --data-urlencode "email_address=$EMAIL" | jq -r '.[].id'`
      (always URL-encode the email — a `+` in an address otherwise turns into a space)
-     and `POST $API/users/<id>/unban` for each.
-   - **Remove** (per email, on both lists): find the entry id
-     (`… | jq -r --arg e "$EMAIL" '(.data // .)[] | select(.identifier==$e) | .id'`),
-     `DELETE $API/allowlist_identifiers/<id>`, then block any account they already
-     made — find it by email as above and `POST $API/users/<id>/ban` for each.
+     and `POST $API/users/<id>/unban` for each (no id back just means no account
+     yet). If that lookup fails (curl or jq errors), say the approval went through but the old block couldn't be checked.
+   - **Remove** (per email, on both lists): find the entry id in the full list
+     above, `DELETE $API/allowlist_identifiers/<id>`, then block any account they
+     already made — find it by email as above and `POST $API/users/<id>/ban` for
+     each. If the account lookup fails (curl or jq errors), the removal is **not
+     done**: say so, and never report someone as removed without having checked
+     for their account.
      The list only controls who can **create** an account, so removing someone
      without blocking their account would leave them able to sign in.
      If the list approves a **whole domain** that covers this person, deleting their
@@ -83,23 +100,29 @@ ON=$(curl -s "${AUTH[@]}" -X PATCH "$API/instance/restrictions" -d '{"allowlist"
   create an account.
 - If it doesn't come back `true`, stop and say *"Your admin needs to switch on the
   approved-list setting for this app."*
-- Never tell the builder that only approved people can get in until this has come
-  back `true` for that list. **new-app**, **save-preview** and **make-it-live** run
-  this step too.
+- **new-app**, **save-preview** and **make-it-live** run this whole step too,
+  including the account check below.
 
-Accounts made before the list was on can still sign in. List every account (page
-with `offset` as for the list) and compare its addresses, lowercased, with the list:
+**Then check the accounts that already exist** — the list only stops new accounts,
+so one made before the list was on can still sign in. List every account that isn't
+blocked (page with `offset=500`, `1000`, … until a page comes back with fewer than
+500) and compare its addresses, lowercased, with the full list:
 ```bash
-curl -s "${AUTH[@]}" "$API/users?limit=500&offset=0" | jq -r '.[] | .email_addresses[].email_address' | tr -d '\r'
+curl -sf "${AUTH[@]}" "$API/users?limit=500&offset=0" \
+  | jq -r '.[] | select(.banned | not) | "\(.id) \([.email_addresses[].email_address] | join(","))"' | tr -d '\r'
 ```
-Name anyone who isn't on the list and offer to block them (as in **Remove**).
+If that read fails, treat it as not checked. Any account with no approved address
+is **unapproved access**: name those people to the builder and ask whether to
+approve or block each one, then do it. The list only counts as on when the switch
+came back `true` **and** no unapproved account is left. Until then, never say only
+approved people can get in.
 
 ## Reply
 
 > "Done — Sara can now sign in to the live app." / "Omar can't get in any more." /
 > "112 people approved for the live app; 2 lines weren't emails, so I skipped them:
 > …" / "These 14 people are approved for the live app: …" (and, if any, "2 older
-> accounts aren't on the list and can still sign in — want me to block them?")
+> accounts aren't on the list and can still sign in — approve or block them?")
 
 ## Never
 

@@ -22,7 +22,7 @@ Netlify — done entirely through the tools, never a dashboard.
    ```bash
    GOOD=<commit_ref of the deploy you just republished>
    git fetch origin
-   git switch preview 2>/dev/null || git switch -c preview origin/main
+   # get onto `preview` exactly as save-preview step 2 does (GitHub's copy if it has one)
    git diff --binary origin/main "$GOOD" | git apply --index --3way
    git commit -m "Put back the version from before <the problem, in plain words>"
    git push -u origin preview

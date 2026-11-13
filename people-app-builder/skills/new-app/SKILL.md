@@ -34,6 +34,7 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    part,"* never a raw error.
 
    ```bash
+   set -eo pipefail   # any failed call, even inside a pipe, stops everything after it
    SLUG=<slug>; NAME=<globally-unique site name>; REPO="AstroLabs-people/$SLUG"
    ACCT=$(netlify api listAccountsForUser | jq -r '.[] | select(.name=="AstroLabs People") | .slug' | tr -d '\r')
    [ -n "$ACCT" ] || { echo "not on the AstroLabs People team" >&2; exit 1; }
@@ -85,10 +86,11 @@ Fixed for every People app: GitHub org **`AstroLabs-people`**, template
    needs to set up sign-in for this app — once they send the two codes, you'll be
    able to open it."*
 
-   Then put the builder's own work email on the approved list (the
+   If you stored the test codes, put the builder's own work email on the approved list (the
    **who-can-get-in** skill, test list) so they can sign in to their own app, and
    **switch that list on** (who-can-get-in → *Switch the list on*). If it doesn't
    come back on, stop and say the admin needs to switch on the approved-list setting.
+   With no test codes yet, skip both; do them as soon as the codes arrive.
 6. The first preview comes with the builder's first change ("save a preview").
 
 ## Reply

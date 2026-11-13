@@ -70,14 +70,34 @@ sign-in for approved people, its data in the platform's managed database, and
    - **Data:** same as step 3. Tables go in `db/schema.ts` and are applied on
      publish. Real data comes only from the approved source, and only once sign-in
      and the server rules are in place (step 5).
+   - **Outside services** the app already calls (AI, email, …): switch them off, or
+     put them behind a simple switch, until the builder confirms the service is
+     approved for People data, as in step 3.
    - **Only then** create `gh repo create "AstroLabs-people/<slug>" --private` and
      push a **clean start, not the old history**: earlier versions can hold employee
-     data, keys, or a version without sign-in. Check `git status` shows no `.env`,
-     export or data file first, then:
+     data, keys, or a version without sign-in.
      ```bash
-     git remote rename origin old 2>/dev/null
-     git checkout --orphan people-main && git add -A && git commit -m "Start <app> on the People platform"
-     git remote add origin "https://github.com/AstroLabs-people/<slug>.git"
+     set -e
+     if [ -d .git ]; then
+       git remote -v        # look before changing anything
+       if git remote get-url origin >/dev/null 2>&1; then git remote rename origin "old-$(date +%Y%m%d%H%M%S)"; fi
+       git checkout --orphan people-main
+       git read-tree --empty   # start from an empty index so .gitignore applies to every file
+     else
+       git init -q -b people-main
+     fi
+     git add -A
+     git diff --cached --name-only
+     ```
+     Read that file list. Anything that looks like keys or data (`.env*`, exports,
+     `.csv` / `.xlsx`, database dumps) comes out first: `git rm --cached <file>`, and
+     add it to `.gitignore`. Then:
+     ```bash
+     set -e
+     NEW="https://github.com/AstroLabs-people/<slug>.git"
+     git commit -q -m "Start <app> on the People platform"
+     git remote add origin "$NEW"
+     [ "$(git remote get-url origin)" = "$NEW" ] || { echo "wrong place — stop" >&2; exit 1; }
      git push -u origin people-main:main
      ```
      Never push the old branches or tags. Then connect Netlify and sign-in as in
