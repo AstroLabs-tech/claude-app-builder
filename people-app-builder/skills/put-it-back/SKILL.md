@@ -17,14 +17,22 @@ Netlify — done entirely through the tools, never a dashboard.
    set -eo pipefail
    SITE_ID=$(jq -er .siteId .netlify/state.json | tr -d '\r')
    CUR=$(netlify api getSite --data "{\"site_id\":\"$SITE_ID\"}" | jq -er .published_deploy.id | tr -d '\r')
-   PREV=$(netlify api listSiteDeploys --data "{\"site_id\":\"$SITE_ID\",\"per_page\":100}" \
-     | jq -er --arg c "$CUR" '[.[] | select(.context == "production" and .state == "ready")] as $d
-         | ($d | map(.id) | index($c)) as $i
-         | if $i == null then error("current version not in the list") else $d[$i + 1].id end' | tr -d '\r')
+   P=1; FOUND=""; PREV=""
+   while [ -z "$PREV" ]; do   # newest first, page by page: the next ready production deploy after CUR
+     PAGE=$(netlify api listSiteDeploys --data "{\"site_id\":\"$SITE_ID\",\"page\":$P,\"per_page\":100}")
+     N=$(jq -er 'if type == "array" then length else error("unexpected reply") end' <<<"$PAGE")
+     for ID in $(jq -r '.[] | select(.context == "production" and .state == "ready") | .id' <<<"$PAGE" | tr -d '\r'); do
+       if [ -n "$FOUND" ]; then PREV=$ID; break; fi
+       [ "$ID" = "$CUR" ] && FOUND=1
+     done
+     [ "$N" -eq 100 ] || break; P=$((P+1))
+   done
+   echo "found_current=${FOUND:-no} previous=${PREV:-none}"
    ```
-   If it stops because the current version isn't in the list, don't guess: say you
-   couldn't find which version to go back to. If there's no earlier version (`null`),
-   say there's nothing to go back to. Either way, stop.
+   A failed read stops the block with an error: say you couldn't read the app's
+   versions. `found_current=no` means the live version isn't in Netlify's list, so
+   don't guess; say you couldn't tell which version to go back to. `previous=none`
+   means there's nothing earlier to go back to. In all three cases, stop.
 2. **Republish it** with `netlify api restoreSiteDeploy --data '{"site_id":"…","deploy_id":"…"}'`,
    then confirm the site's `published_deploy.id` is now `$PREV`. Only then is it
    rolled back.
@@ -33,7 +41,9 @@ Netlify — done entirely through the tools, never a dashboard.
    would publish it again. Straight away, add the undo on top of the working line
    as one new change (never rewrite history). First do **save-preview** step 1
    (someone else's work in progress); if another builder has unpublished work on
-   `preview`, ask before adding the undo on top of it.
+   `preview`, ask before adding the undo on top of it. If you stop here, the undo
+   **hasn't been made yet**: say the live app is back, and that the undo still needs
+   making before the next "make it live".
    ```bash
    GOOD=<commit_ref of $PREV>
    git fetch origin
@@ -43,8 +53,8 @@ Netlify — done entirely through the tools, never a dashboard.
    ```
    Before pushing, run **save-preview** step 4 (the test-list check). Then push
    `preview` and open or update the preview pull request as **save-preview** does.
-   If either check stops you, the live app is still rolled back: say so, and that
-   the undo is saved on this computer but not shared yet. The diff
+   If that check stops you, the live app is still rolled back: say so, and that the
+   undo is saved on this computer but not shared yet. The diff
    undoes exactly what `main` gained after the good version and leaves any
    unpublished work on `preview` alone. If it doesn't apply cleanly, stop: the live
    app is already back, so say that, and that the undo still needs saving before

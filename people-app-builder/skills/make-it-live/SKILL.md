@@ -30,16 +30,15 @@ Publish the previewed version to the live app. This is the one action that
 3. **Check it's safe to publish.** There must be an open pull request from
    `preview` into `main`, and every check on it must have passed
    (`gh pr checks <number>`), including Netlify's preview. Never publish a change
-   whose preview didn't build. Nothing has been changed yet if this stops you.
-
-   Then, **every time**, make sure someone can get in and nobody else can. Read the
-   full live list (who-can-get-in → **List**, `CTX=production`); if that read fails,
+   whose preview didn't build. If this check stops you, nothing has been changed.
+4. **Make sure someone can get in and nobody else can — every time.** Read the full
+   live list (who-can-get-in → **List**, `CTX=production`); if that read fails,
    stop. If the list is empty (first time live), approve the builder's own work
-   email, then offer to approve the people on the test list for the live app too,
-   and **read the list again** so it includes them. Then run who-can-get-in →
-   *Switch the list on* with `CTX=production`, including its account check, against
-   that fresh list. If it doesn't pass, stop — don't publish.
-4. **Publish.** Merge it with a normal merge (`gh pr merge <number> --merge`; never
+   email and **read the list again**. Then run who-can-get-in → *Switch the list on*
+   with `CTX=production`, including its account check, against that fresh list. If
+   it doesn't pass, stop — don't publish. By then the live list may already have
+   changed (the builder approved, the setting switched on), so say what was done.
+5. **Publish.** Merge it with a normal merge (`gh pr merge <number> --merge`; never
    squash or rebase, so each live version maps to a commit on `main`). Netlify
    deploys `main` to the live app automatically. Find that production deploy by the
    merge commit (`gh pr view <number> --json mergeCommit`, matched to `commit_ref` in
@@ -53,7 +52,9 @@ Publish the previewed version to the live app. This is the one action that
    the reason in one plain sentence and offer to fix it. If no deploy appears, check
    for a build held at `pending_review` (see **save-preview** step 6): it needs the
    same one-time admin OK, and the previous version stays up until then.
-5. **First time live:** tell them they can approve others the same way.
+6. **First time live:** tell them that people they approved for testing aren't on
+   the live list yet, and that they can approve anyone for the live app the same
+   way (*"let Sara in"*).
 
 ## Reply
 

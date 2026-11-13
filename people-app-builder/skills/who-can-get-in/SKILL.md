@@ -12,13 +12,15 @@ API — the builder never opens a dashboard.
 
 ## Pick the list
 
-- **Approve someone:** the **live list** if the app has gone live (it has live codes
-  **and** its live list isn't empty, because make-it-live puts the builder on it
-  the first time), otherwise the **test list**. If they say "for testing" or "for the preview", use
+- **Approve someone:** the **live list** if the app has gone live, otherwise the
+  **test list**. *Gone live* means it has live codes **and** a preview has been
+  published at least once
+  (`gh pr list --head preview --base main --state merged --limit 1` returns one).
+  If they say "for testing" or "for the preview", use
   the test list. Never put real staff on the test list just to be safe.
 - **Remove someone:** **both lists**, always.
-- **"Who can get in?":** show the list for the live app if it's live, otherwise the
-  test list, and say which one it is.
+- **"Who can get in?":** show the live list if the app has gone live (same test as
+  above), otherwise the test list, and say which one it is.
 
 ## Steps
 
@@ -90,10 +92,10 @@ carry over from one call to the next. Put step 1 and everything that uses its
      but the old block couldn't be checked.
    - **Remove** (per email, on both lists), in this order: first look up any
      account they made, with the two checked steps above. That lookup must succeed;
-     if either step fails, stop, because the removal is **not done**. Block the
-     accounts where this address is **verified** (the same filter as above). An
-     account that only holds it unverified belongs to someone else, and that address
-     gives no way in. Then find the entry id
+     if either step fails, stop, because the removal is **not done**. Block
+     **every** account the lookup returns, verified or not: removal fails closed. If
+     that also blocks someone else's account (it only held this address unverified),
+     they're unblocked when they're approved themselves. Then find the entry id
      in the full list above (compare emails lowercased), `DELETE $API/allowlist_identifiers/<id>`, and
      `POST $API/users/<id>/ban` for each account found. Never report someone as
      removed without having checked for their account.
@@ -107,7 +109,7 @@ carry over from one call to the next. Put step 1 and everything that uses its
 4. **Check it worked.** Check the HTTP status of every add, delete, ban and unban
    (`curl -s -o /dev/null -w '%{http_code}'`); then list again, and for removals fetch
    each account (`GET $API/users/<id>`) and confirm `"banned": true` (for re-approvals,
-   `false`). Only report success for what you verified; name anyone that didn't go
+   `false` on each account you unbanned). Only report success for what you verified; name anyone that didn't go
    through.
 
 ## Switch the list on

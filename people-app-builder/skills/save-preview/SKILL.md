@@ -14,8 +14,9 @@ Netlify builds for the open pull request. This never touches the live site.
 1. **Check for someone else's work in progress.** Everyone shares one GitHub login,
    so look at who wrote the changes, not who opened the pull request:
    `gh pr list --head preview --state open --json number,commits --jq '.[].commits[].authors[].email'`.
-   Ignore `noreply@anthropic.com` (Claude's co-author line on every change). If any
-   other email isn't this builder's (`git config --global user.email`),
+   Compare lowercased, and ignore Claude's co-author address
+   (`noreply@anthropic.com`, on every change). If any other email isn't this
+   builder's (`git config --global user.email`),
    say so plainly and ask before continuing:
    *"Heads up — Sam already has a change in progress on this app. Want to build on
    top of theirs, or wait?"* (One owner at a time per app.)
