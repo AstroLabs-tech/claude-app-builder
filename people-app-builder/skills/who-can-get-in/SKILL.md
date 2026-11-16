@@ -85,7 +85,7 @@ carry over from one call to the next. Put step 1 and everything that uses its
      `+` in an address otherwise turns into a space):
      ```bash
      U=$(curl -sf -G "${AUTH[@]}" "$API/users" --data-urlencode "email_address=$EMAIL") || exit 1
-     jq -e 'type == "array"' <<<"$U" >/dev/null || exit 1
+     jq -e 'type == "array" and all(.[]; (.id | type) == "string" and .id != "")' <<<"$U" >/dev/null || exit 1
      ```
      Then `POST $API/users/<id>/unban` only for accounts where **this address is
      verified**:

@@ -58,7 +58,8 @@ stop and explain in plain words.
      not create a new one.
 
 3. **Create the platform home — a private repo in the team org** (`$BUILDER_GH_ORG`),
-   never their personal account:
+   never their personal account. If it isn't clear the app isn't the People team's
+   (employee data, reviews, personal details), ask before creating anything, and wait:
    `gh repo create "$BUILDER_GH_ORG/<slug>" --private` (slug per new-app's naming rule).
    Point the local folder at it **over HTTPS** (avoid SSH/wrong-account): add the new
    repo as `origin` (rename any existing remote to `old`), then push their code —

@@ -80,7 +80,10 @@ sign-in for approved people, its data in the platform's managed database, and
      # `set -e` does nothing in Claude Code's shell, so each step has its own stop
      NEW="https://github.com/AstroLabs-people/<slug>.git"
      if git rev-parse -q --verify people-main >/dev/null; then
-       git switch -q people-main || exit 1   # a re-run: the clean start already exists
+       # a re-run is fine only if every commit on it is one this step made
+       git log --format=%s people-main | grep -qv -e '^Start .* on the People platform$' -e '^Tidy the clean start$' \
+         && { echo "a people-main branch already exists that this step didn't make — stop and ask" >&2; exit 1; }
+       git switch -q people-main || exit 1
      elif [ -d .git ]; then
        git remote -v        # look before changing anything
        if git remote get-url origin >/dev/null 2>&1 && [ "$(git remote get-url origin)" != "$NEW" ]; then
@@ -100,7 +103,11 @@ sign-in for approved people, its data in the platform's managed database, and
      fails):
      ```bash
      NEW="https://github.com/AstroLabs-people/<slug>.git"
-     git rev-parse -q --verify HEAD >/dev/null || git commit -q -m "Start <app> on the People platform" || exit 1
+     if ! git rev-parse -q --verify HEAD >/dev/null; then
+       git commit -q -m "Start <app> on the People platform" || exit 1
+     elif ! git diff --cached --quiet; then
+       git commit -q -m "Tidy the clean start" || exit 1   # a retry with fixes staged
+     fi
      git remote get-url origin >/dev/null 2>&1 || git remote add origin "$NEW" || exit 1
      [ "$(git remote get-url origin)" = "$NEW" ] || { echo "wrong place — stop" >&2; exit 1; }
      git push -u origin people-main:main || exit 1

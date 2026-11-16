@@ -29,7 +29,8 @@ Publish the previewed version to the live app. This is the one action that
    in the meantime."* Never publish with test codes, and never publish without sign-in.
 3. **Check it's safe to publish.** There must be an open pull request from
    `preview` into `main`, and every check on it must have passed
-   (`gh pr checks <number>`), including Netlify's preview. Never publish a change
+   (`gh pr checks <number>`), including Netlify's preview. Note the head commit
+   you checked (`gh pr view <number> --json headRefOid`). Never publish a change
    whose preview didn't build. If this check stops you, nothing has been changed.
 4. **Make sure someone can get in and nobody else can — every time.** Read the full
    live list (who-can-get-in → **List**, `CTX=production`); if that read fails,
@@ -41,7 +42,9 @@ Publish the previewed version to the live app. This is the one action that
    with `CTX=production`, including its account check, against that fresh list. If
    it doesn't pass, stop — don't publish. By then the live list may already have
    changed (the builder approved, the setting switched on), so say what was done.
-5. **Publish.** Merge it with a normal merge (`gh pr merge <number> --merge`; never
+5. **Publish.** Merge exactly the commit you checked, with a normal merge
+   (`gh pr merge <number> --merge --match-head-commit <checked sha>`; if it refuses
+   because someone pushed since, go back to step 3; never
    squash or rebase, so each live version maps to a commit on `main`). Netlify
    deploys `main` to the live app automatically. Find that production deploy by the
    merge commit (`gh pr view <number> --json mergeCommit`, matched to `commit_ref` in
