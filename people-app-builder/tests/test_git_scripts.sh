@@ -76,9 +76,15 @@ test_undo_nothing_to_undo() {
 }
 
 # ---------------------------------------------------------------- clean-start.sh
+# The "People repo" URL as git will store it. On Windows, Git Bash rewrites a /tmp/…
+# path into C:/… when it hands it to git, so use that form there (real builders push
+# to https URLs, which aren't rewritten).
+native_path() { cygpath -m "$1" 2>/dev/null || printf '%s' "$1"; }
+
 make_old_app() {
   setup
   git init -q --bare -b main "$WORK/people.git"
+  URL=$(native_path "$WORK/people.git")
   mkdir "$WORK/app" && cd "$WORK/app" || exit 1
   git init -q -b main && git config user.email ribal@astrolabs.com && git config user.name Ribal
   echo SECRET=1 > .env && echo x > page.tsx && printf 'name,rating\n' > data.csv
@@ -90,7 +96,7 @@ make_old_app() {
 
 test_clean_start_prepare_lists_files_and_key_lines() {
   make_old_app
-  run clean-start.sh prepare "$WORK/people.git"
+  run clean-start.sh prepare "$URL"
   expect_code 0
   expect_out "data.csv"
   expect_out 'lib.ts:1:const k = "sk_live_abc";'
@@ -99,14 +105,14 @@ test_clean_start_prepare_lists_files_and_key_lines() {
 
 test_clean_start_retry_folds_fixes_into_one_commit() {
   make_old_app
-  run clean-start.sh prepare "$WORK/people.git"
+  run clean-start.sh prepare "$URL"
   git remote add origin "$WORK/nowhere.git" 2>/dev/null || git remote set-url origin "$WORK/nowhere.git"
-  run clean-start.sh push "$WORK/people.git" demo
+  run clean-start.sh push "$URL" demo
   expect_code 1 # origin points somewhere else
-  git remote set-url origin "$WORK/people.git"
+  git remote set-url origin "$URL"
   git rm -q --cached data.csv lib.ts && printf '.env\ndata.csv\nlib.ts\n' > .gitignore
-  run clean-start.sh prepare "$WORK/people.git"
-  run clean-start.sh push "$WORK/people.git" demo
+  run clean-start.sh prepare "$URL"
+  run clean-start.sh push "$URL" demo
   expect_code 0
   check "one commit on GitHub" [ "$(git -C "$WORK/people.git" rev-list --count main)" = 1 ]
   check "no data.csv anywhere" [ -z "$(git -C "$WORK/people.git" log --all --name-only --format= | grep data.csv)" ]
@@ -116,15 +122,15 @@ test_clean_start_retry_folds_fixes_into_one_commit() {
 test_clean_start_refuses_foreign_people_main() {
   make_old_app
   git switch -q -c people-main && echo y > y && git add y && git_quiet commit -m "Start x on the People platform" && git switch -q main
-  run clean-start.sh prepare "$WORK/people.git"
+  run clean-start.sh prepare "$URL"
   expect_code 4
 }
 
 test_clean_start_refuses_other_push_url() {
   make_old_app
-  run clean-start.sh prepare "$WORK/people.git"
-  git remote add origin "$WORK/people.git" && git remote set-url --push origin https://elsewhere.invalid/x.git
-  run clean-start.sh push "$WORK/people.git" demo
+  run clean-start.sh prepare "$URL"
+  git remote add origin "$URL" && git remote set-url --push origin https://elsewhere.invalid/x.git
+  run clean-start.sh push "$URL" demo
   expect_code 1
   expect_err "somewhere other than"
 }
@@ -141,11 +147,11 @@ test_undo_preview_clash_says_no_undo_was_tried() {
 
 test_clean_start_rerun_after_successful_push_is_a_no_op() {
   make_old_app
-  run clean-start.sh prepare "$WORK/people.git"
-  run clean-start.sh push "$WORK/people.git" demo
+  run clean-start.sh prepare "$URL"
+  run clean-start.sh push "$URL" demo
   expect_code 0
-  run clean-start.sh prepare "$WORK/people.git"
-  run clean-start.sh push "$WORK/people.git" demo
+  run clean-start.sh prepare "$URL"
+  run clean-start.sh push "$URL" demo
   expect_code 0
   expect_out "already_pushed=yes"
 }
@@ -154,8 +160,8 @@ test_clean_start_refuses_to_overwrite_a_different_main() {
   make_old_app
   git_quiet clone -q "$WORK/people.git" "$WORK/other" 2>/dev/null || true
   (cd "$WORK/other" && git switch -q -c main 2>/dev/null; echo z > z && git add z && git_quiet commit -m other && git_quiet push -q origin main)
-  run clean-start.sh prepare "$WORK/people.git"
-  run clean-start.sh push "$WORK/people.git" demo
+  run clean-start.sh prepare "$URL"
+  run clean-start.sh push "$URL" demo
   expect_code 4
   expect_err "already has a different main"
 }
@@ -164,7 +170,7 @@ test_clean_start_refuses_worktree_folder() {
   make_old_app
   git worktree add -q "$WORK/wt" -b wt-branch >/dev/null 2>&1
   cd "$WORK/wt" || exit 1
-  run clean-start.sh prepare "$WORK/people.git"
+  run clean-start.sh prepare "$URL"
   expect_code 1
   expect_err "worktree or submodule"
 }
