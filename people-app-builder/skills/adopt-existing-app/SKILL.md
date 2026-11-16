@@ -75,55 +75,30 @@ sign-in for approved people, its data in the platform's managed database, and
      put them behind a simple switch, until the builder confirms the service is
      approved for People data, as in step 3.
    - **Only then** create `gh repo create "AstroLabs-people/<slug>" --private` and
-     push a **clean start, not the old history**: earlier versions can hold employee
-     data, keys, or a version without sign-in.
+     put up a **clean start, not the old history**: earlier versions can hold
+     employee data, keys, or a version without sign-in. With
+     `URL=https://github.com/AstroLabs-people/<slug>.git`:
      ```bash
-     # `set -e` does nothing in Claude Code's shell, so each step has its own stop
-     NEW="https://github.com/AstroLabs-people/<slug>.git"
-     if git rev-parse -q --verify people-main >/dev/null; then
-       # a re-run is fine only if it's this step's single clean-start commit
-       [ "$(git rev-list --count people-main)" = 1 ] \
-         && git log -1 --format=%s people-main | grep -q '^Start .* on the People platform$' \
-         || { echo "a people-main branch already exists that this step didn't make — stop and ask" >&2; exit 1; }
-       git switch -q people-main || exit 1
-     elif [ -d .git ]; then
-       git remote -v        # look before changing anything
-       if git remote get-url origin >/dev/null 2>&1 && [ "$(git remote get-url origin)" != "$NEW" ]; then
-         git remote rename origin "old-$(date +%Y%m%d%H%M%S)" || exit 1
-       fi
-       git checkout --orphan people-main || exit 1
-       git read-tree --empty || exit 1   # empty index, so .gitignore applies to every file
-     else
-       git init -q -b people-main || exit 1
-     fi
-     git add -A || exit 1
-     git ls-files   # every file that will be pushed, not just what's new
-     # and anything that looks like a key or password inside them
-     git grep --cached -nIiE 'sk_(live|test)_|pk_live_|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|(password|secret|api[_-]?key|token)["'"'"']?[[:space:]]*[:=]' || true
+     bash "${CLAUDE_PLUGIN_ROOT}/scripts/clean-start.sh" prepare "$URL"
      ```
-     Read that file list and the matches under it. Anything that looks like keys or
+     It stages every file on a fresh `people-main` line (so `.gitignore` applies to
+     all of them) and lists every file that will go up, plus any line that looks
+     like a key or password. **Read both lists.** Anything that looks like keys or
      data (`.env*`, exports, `.csv` / `.xlsx`, database dumps, a real key in a source
-     file, a file of real people's names or reviews) comes out first; a key written
-     into code moves to **store-secret**: `git rm --cached <file>`, add
-     it to `.gitignore`, and `git add .gitignore`. Then the second block. If the push
-     fails, run **both** blocks again: the first stages everything and lists the whole
-     tree for review again, and the second folds any fixes into the single clean
-     start, so nothing removed survives in an older commit.
+     file, a file of real people's names or reviews) comes out first: a key written
+     into code moves to **store-secret**; a file comes out with `git rm --cached
+     <file>`, an entry in `.gitignore`, and `git add .gitignore`. Exit 4 means a
+     `people-main` line already exists that this didn't make: ask the builder.
+     Then:
      ```bash
-     NEW="https://github.com/AstroLabs-people/<slug>.git"
-     if ! git rev-parse -q --verify HEAD >/dev/null; then
-       git commit -q -m "Start <app> on the People platform" || exit 1
-     elif ! git diff --cached --quiet; then
-       # a retry before anything reached GitHub: fold the fixes into the one clean start
-       git commit -q --amend --no-edit || exit 1
-     fi
-     git remote get-url origin >/dev/null 2>&1 || git remote add origin "$NEW" || exit 1
-     [ "$(git remote get-url origin)" = "$NEW" ] && [ "$(git remote get-url --push --all origin)" = "$NEW" ] \
-       || { echo "wrong place — stop" >&2; exit 1; }
-     git push -u origin people-main:main || exit 1
+     bash "${CLAUDE_PLUGIN_ROOT}/scripts/clean-start.sh" push "$URL" "<app name>"
      ```
-     Never push the old branches or tags. Then connect Netlify and sign-in as in
-     **new-app** steps 4–5.
+     It makes the single clean-start commit, checks the folder would push only to
+     that People repo, and pushes it as `main`. If the push fails, run **both**
+     commands again: `prepare` lists everything again, and `push` folds any fixes into
+     the same single commit, so nothing removed survives in an older one. Never push
+     the old branches or tags. Then connect Netlify and sign-in as in **new-app**
+     steps 4–5.
 
 5. **Data:** never ship pointing at a personal database or a personal copy of a
    spreadsheet. Real employee data comes in only from the source the builder confirms

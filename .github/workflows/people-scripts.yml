@@ -1,0 +1,36 @@
+# Lints and tests the people-app-builder scripts on Linux, macOS (incl. its bash 3.2) and
+# Windows Git Bash, the shells builders actually run them in.
+name: people-app-builder scripts
+
+on:
+  pull_request:
+    paths:
+      - "people-app-builder/**"
+      - ".github/workflows/people-scripts.yml"
+      - ".gitattributes"
+      - ".shellcheckrc"
+  push:
+    branches: [main]
+    paths:
+      - "people-app-builder/**"
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        if: runner.os == 'Linux'
+        run: shellcheck people-app-builder/scripts/*.sh people-app-builder/tests/*.sh
+      - name: Tests
+        run: bash people-app-builder/tests/run.sh
+      - name: Tests on macOS's bash 3.2
+        if: runner.os == 'macOS'
+        run: /bin/bash people-app-builder/tests/run.sh

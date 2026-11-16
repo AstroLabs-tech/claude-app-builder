@@ -1,0 +1,3 @@
+# Scripts must keep LF line endings, even when Windows git checks them out.
+*.sh text eol=lf
+people-app-builder/tests/fakes/* text eol=lf
