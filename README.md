@@ -90,6 +90,13 @@ data. It is the same flow with stricter defaults and its own isolated home:
   Windows and the tools with winget), and new apps connect to Netlify through scripted
   API calls instead of `netlify init`'s menus.
 
+- **Scripts, not shell in prose.** The risky steps (connecting Netlify, the approved
+  lists, publishing, rolling back, the clean start for an existing app) are scripts in
+  `people-app-builder/scripts/` that the skills call. They're bash 3.2-compatible
+  (macOS) and Git Bash-safe (Windows), and each one is tested against fake `netlify`,
+  `gh` and Clerk: `bash people-app-builder/tests/run.sh`. CI runs ShellCheck and the
+  tests on Linux, macOS and Windows.
+
 Install (People builders, once), in the Claude Code tab:
 
 ```

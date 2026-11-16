@@ -1,0 +1,5 @@
+# jq programs use $names inside single quotes on purpose.
+disable=SC2016
+# Scripts source lib.sh from their own folder.
+source-path=SCRIPTDIR
+external-sources=true
