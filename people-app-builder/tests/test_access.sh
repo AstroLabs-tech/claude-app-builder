@@ -192,3 +192,44 @@ test_lock_fails_when_switch_does_not_stick() {
   expect_code 1
   expect_err "didn't switch on"
 }
+
+test_lists_failed_read_is_an_error_not_no() {
+  setup "$(access_state)"
+  run access.sh lists
+  expect_code 1
+  check "no 'no' printed" [ -z "$(grep '=no' <<<"$OUT")" ]
+}
+
+test_remove_flags_domain_even_with_own_entry() {
+  setup "$(access_state)"; link_here
+  jq '.clerk.sk_test_1.allowlist = [{id: "alw_o", identifier: "omar@astrolabs.com"}, {id: "alw_d", identifier: "*@astrolabs.com"}]' "$FAKE_STATE" > s && mv s "$FAKE_STATE"
+  run access.sh remove omar@astrolabs.com
+  expect_code 0
+  expect_out "covered_by_domain omar@astrolabs.com test"
+  expect_out "removed omar@astrolabs.com test"
+}
+
+test_remove_keeps_going_when_other_account_cannot_be_read() {
+  setup "$(access_state)"; link_here
+  add_user sk_test_1 "$(jq -n '{id: "u_alice", banned: false, email_addresses: [{email_address: "omar@astrolabs.com", verification: {status: "unverified"}}]}')"
+  jq '.clerk.sk_test_1.fail = {"/users/u_alice": 500}' "$FAKE_STATE" > s && mv s "$FAKE_STATE"
+  run access.sh remove omar@astrolabs.com
+  # the ban itself also goes through /users/u_alice/ban, which the fake still serves
+  check "finished the removal" grep -q "removed omar@astrolabs.com test" <<<"$OUT"
+}
+
+test_block_by_account_id() {
+  setup "$(access_state)"; link_here
+  add_user sk_test_1 "$(jq -n '{id: "u_x", banned: false, email_addresses: []}')"
+  run access.sh block u_x
+  expect_code 0
+  expect_out "blocked u_x test"
+  expect_state '.clerk.sk_test_1.users[0].banned' true
+}
+
+test_block_unknown_id_fails() {
+  setup "$(access_state)"; link_here
+  run access.sh block u_nope
+  expect_code 1
+  expect_out "failed u_nope"
+}

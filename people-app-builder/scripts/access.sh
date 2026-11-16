@@ -9,6 +9,7 @@
 #   access.sh approve <test|live> <email>... add people              -> approved|already|failed|skipped <email>
 #   access.sh remove  <email>...          take people off BOTH lists and block their accounts
 #   access.sh lock    <test|live>         switch the list on, then check every existing account
+#   access.sh block   <account-id>...     block accounts `lock` flagged that have no usable email
 #
 # Exit: 0 ok, 3 that list doesn't exist yet, 4 accounts need the builder's decision (lock),
 # 1 something failed (message on stderr; per-email failures are also listed on stdout).
@@ -97,10 +98,11 @@ set_banned() { # user_id true|false -> verified result
 }
 
 cmd_lists() {
-  local l ctx
+  local l ctx code
   for l in test live; do
     ctx=$(list_context "$l")
-    if [ -n "$(env_get CLERK_SECRET_KEY "$ctx")" ]; then echo "$l=yes"; else echo "$l=no"; fi
+    code=$(env_get CLERK_SECRET_KEY "$ctx") # a failed read stops here; it never reads as "no"
+    if [ -n "$code" ]; then echo "$l=yes"; else echo "$l=no"; fi
   done
 }
 
@@ -156,13 +158,20 @@ cmd_remove() {
         api DELETE "/allowlist_identifiers/$entry_id"
         ok || { echo "failed $email $list delete-HTTP-$RC"; failed=1; continue; }
       fi
-      approved_by "$email" "$entries" && [ -z "$entry_id" ] && echo "covered_by_domain $email $list"
+      # A whole-domain entry still lets them in, even after their own entry is gone.
+      if approved_by "$email" "$(printf '%s\n' "$entries" | awk -v e="$email" '$2 != e')"; then
+        echo "covered_by_domain $email $list"
+      fi
       while read -r id state banned; do
         [ -n "$id" ] || continue
         if ! set_banned "$id" true; then echo "failed $email $list ban-$id"; failed=1; continue; fi
         if [ "$state" = unverified ]; then
+          others=unknown
           api GET "/users/$id"
-          others=$(printf '%s' "$BODY" | jqr -r '[.email_addresses[] | select(.verification.status == "verified") | .email_address] | join(",")')
+          if ok; then
+            others=$(printf '%s' "$BODY" | jqr -r '[.email_addresses[]? | select(.verification.status == "verified") | .email_address] | join(",")') \
+              || others=unknown
+          fi
           echo "also_blocked $list $id ${others:-no-verified-address}"
         fi
       done <<<"$found"
@@ -172,35 +181,57 @@ cmd_remove() {
   return "$failed"
 }
 
+# Block accounts by id (for `lock` results with no usable email). Both lists' instances
+# are tried, since an id belongs to one of them.
+cmd_block() {
+  local id list ctx done_one failed=0
+  for id in "$@"; do
+    done_one=no
+    for list in test live; do
+      ctx=$(list_context "$list")
+      SK=$(env_get CLERK_SECRET_KEY "$ctx")
+      [ -n "$SK" ] || continue
+      api GET "/users/$id"
+      ok || continue
+      if set_banned "$id" true; then echo "blocked $id $list"; done_one=yes; fi
+    done
+    [ "$done_one" = yes ] || { echo "failed $id not-found-or-not-blocked"; failed=1; }
+  done
+  return "$failed"
+}
+
 cmd_lock() {
-  local list=$1 on entries off=0 n page id emails e good unapproved=0
+  local list=$1 on entries ok_json off=0 n
   use_list "$list"
   api PATCH /instance/restrictions '{"allowlist":true}'
   ok || die "$E_FAIL" "couldn't switch the approved list on (HTTP $RC; check the sign-in codes)"
   on=$(printf '%s' "$BODY" | jqr -r .allowlist)
   [ "$on" = true ] || die "$E_FAIL" "the approved list didn't switch on; the admin needs to check this app's sign-in plan"
   entries=$(all_entries)
+  ok_json=$(printf '%s\n' "$entries" | awk 'NF {print $2}' | jq -R . | jq -sc .) \
+    || die "$E_FAIL" "couldn't read the approved list"
   # Accounts made before the list was on can still sign in: every unblocked account
-  # needs a verified address the list approves.
+  # needs a verified address the list approves (exactly, or by a whole-domain entry).
+  # One jq pass per page, so a big list stays quick on Windows.
+  local found unapproved=""
   while :; do
     api GET "/users?limit=$PAGE&offset=$off"
     ok || die "$E_FAIL" "couldn't read the accounts (HTTP $RC)"
     n=$(printf '%s' "$BODY" | jqr -er 'if type == "array" then length else error("bad") end') \
       || die "$E_FAIL" "the sign-in service sent an unexpected reply"
-    page=$(printf '%s' "$BODY" | jqr -r '.[] | select(.banned | not) |
-      "\(.id) \([.email_addresses[] | select(.verification.status == "verified") | .email_address | ascii_downcase] | join(","))"')
-    while read -r id emails; do
-      [ -n "$id" ] || continue
-      good=no
-      for e in $(printf '%s' "$emails" | tr ',' ' '); do
-        if approved_by "$e" "$entries"; then good=yes; break; fi
-      done
-      if [ "$good" = no ]; then echo "unapproved $id ${emails:-no-verified-address}"; unapproved=1; fi
-    done <<<"$page"
+    found=$(printf '%s' "$BODY" | jqr -r --argjson ok "$ok_json" '
+      ($ok | map({(.): true}) | add // {}) as $set
+      | .[] | select(.banned | not)
+      | [.email_addresses[]? | select(.verification.status == "verified") | .email_address | ascii_downcase] as $v
+      | select(all($v[]; (split("@")[1]) as $d
+          | ($set[.] or $set["*@" + $d] or $set["@" + $d] or $set[$d]) | not))
+      | "unapproved \(.id) \(if ($v | length) == 0 then "no-verified-address" else ($v | join(",")) end)"') \
+      || die "$E_FAIL" "the sign-in service sent an unexpected reply"
+    if [ -n "$found" ]; then printf '%s\n' "$found"; unapproved=yes; fi
     [ "$n" -eq "$PAGE" ] || break
     off=$((off + PAGE))
   done
-  [ "$unapproved" -eq 0 ] || exit "$E_DECIDE"
+  [ -z "$unapproved" ] || exit "$E_DECIDE"
   echo "locked=yes"
 }
 
@@ -210,5 +241,6 @@ case "${1:-}" in
   approve) [ $# -ge 3 ] || die "$E_USAGE" "usage: access.sh approve <test|live> <email>..."; shift; cmd_approve "$@" ;;
   remove) [ $# -ge 2 ] || die "$E_USAGE" "usage: access.sh remove <email>..."; shift; cmd_remove "$@" ;;
   lock) [ $# -eq 2 ] || die "$E_USAGE" "usage: access.sh lock <test|live>"; cmd_lock "$2" ;;
+  block) [ $# -ge 2 ] || die "$E_USAGE" "usage: access.sh block <account-id>..."; shift; cmd_block "$@" ;;
   *) die "$E_USAGE" "usage: access.sh lists|list|approve|remove|lock …" ;;
 esac

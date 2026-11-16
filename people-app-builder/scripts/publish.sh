@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # make-it-live: publish the preview pull request safely.
-#   publish.sh check <pr>          checks all passed on the PR's current head -> head=<sha>
-#   publish.sh merge <pr> <sha>    merge exactly that head (normal merge)      -> merge=<sha>
-#   publish.sh status <merge-sha>  is that version live yet?                    -> live=<url>
+#   publish.sh check <pr>          every check passed on the PR's head, Netlify's too -> head=<sha>
+#   publish.sh merge <pr> <sha>    merge exactly that head (normal merge)            -> merged=yes
+#   publish.sh status <pr>         is the merged version live yet?                   -> live=<url>
 # Exit: 0 ok; 6 still building/checking (run again shortly); 7 someone pushed meanwhile
 # (check again); 8 ready but publishing is paused; 9 held for an admin's approval; 1 failure.
 
@@ -13,27 +13,49 @@ HERE=${0%[/\\]*}
 . "$HERE/lib.sh"
 need gh jq
 
-# pr_field <pr> <field> [jq path]: one field of the pull request.
-pr_field() {
-  gh pr view "$1" --json "$2" --jq "${3:-.$2}" | tr -d '\r'
+# One consistent snapshot of the pull request: its head and every check on that head.
+pr_snapshot() {
+  gh pr view "$1" --json state,headRefName,baseRefName,headRefOid,mergeCommit,statusCheckRollup \
+    || die "$E_FAIL" "couldn't read the preview"
+}
+
+# passed | pending | failed | no-netlify, from a snapshot. Netlify's own deploy-preview
+# status must be there and green: GitHub's checks can pass before Netlify has built.
+CHECKS_JQ='[.statusCheckRollup[]?] as $r
+  | if any($r[]; (.__typename == "CheckRun" and .status != "COMPLETED")
+        or (.__typename == "StatusContext" and (.state == "PENDING" or .state == "EXPECTED"))) then "pending"
+    elif any($r[]; (.__typename == "CheckRun" and (.conclusion | IN("FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE")))
+        or (.__typename == "StatusContext" and (.state | IN("FAILURE", "ERROR")))) then "failed"
+    elif any($r[]; .__typename == "StatusContext" and (.context | test("^netlify/.+/deploy-preview$")) and .state == "SUCCESS") then "passed"
+    else "no-netlify" end'
+
+held_state() { # sha-or-pr-ref -> number of builds held for approval
+  local sid
+  sid=$(site_id)
+  netlify api listSiteBuilds --data "$(jq -n --arg s "$sid" '{site_id:$s}')" \
+    | jqr -r --arg c "$1" '[.[] | select(.sha == $c and .deploy_state == "pending_review")] | length' \
+    || die "$E_FAIL" "couldn't read the app's builds"
 }
 
 check() {
-  local pr=$1 head before after rc=0
-  [ "$(pr_field "$pr" state)" = OPEN ] || die "$E_FAIL" "there's no open preview to publish"
-  [ "$(pr_field "$pr" headRefName)" = preview ] && [ "$(pr_field "$pr" baseRefName)" = main ] \
-    || die "$E_FAIL" "pull request $pr isn't the preview going into main"
-  before=$(pr_field "$pr" headRefOid) || die "$E_FAIL" "couldn't read the preview"
-  gh pr checks "$pr" >/dev/null 2>&1 || rc=$?
-  case "$rc" in
-    0) ;;
-    8) die "$E_WAIT" "the preview's checks are still running" ;;
-    *) die "$E_FAIL" "the preview's checks didn't pass" ;;
+  local pr=$1 snap fields verdict state head_ref base_ref head held
+  snap=$(pr_snapshot "$pr")
+  fields=$(printf '%s' "$snap" | jqr -r '"\(.state) \(.headRefName) \(.baseRefName) \(.headRefOid)"') \
+    || die "$E_FAIL" "couldn't read the preview"
+  read -r state head_ref base_ref head <<<"$fields"
+  [ "$state" = OPEN ] || die "$E_FAIL" "there's no open preview to publish"
+  [ "$head_ref" = preview ] && [ "$base_ref" = main ] || die "$E_FAIL" "pull request $pr isn't the preview going into main"
+  verdict=$(printf '%s' "$snap" | jqr -r "$CHECKS_JQ") || die "$E_FAIL" "couldn't read the preview's checks"
+  case "$verdict" in
+    passed) echo "head=$head" ;;
+    pending) die "$E_WAIT" "the preview's checks are still running" ;;
+    failed) die "$E_FAIL" "the preview's checks didn't pass" ;;
+    no-netlify)
+      need netlify
+      held=$(held_state "pull/$pr/head")
+      [ "$held" = 0 ] || die "$E_HELD" "Netlify is holding the preview until an admin approves this person"
+      die "$E_WAIT" "Netlify hasn't finished building the preview yet" ;;
   esac
-  after=$(pr_field "$pr" headRefOid) || die "$E_FAIL" "couldn't read the preview"
-  [ "$before" = "$after" ] || die "$E_CLASH" "someone saved new changes to the preview meanwhile — check again"
-  head=$after
-  echo "head=$head"
 }
 
 merge() {
@@ -42,39 +64,40 @@ merge() {
     printf '%s' "$msg" | grep -qi 'modified\|head' && die "$E_CLASH" "the preview changed since it was checked — check again"
     die "$E_FAIL" "couldn't publish: $msg"
   fi
-  echo "merge=$(pr_field "$pr" mergeCommit .mergeCommit.oid)"
+  echo "merged=yes"
 }
 
 status() {
-  local merge_sha=$1 sid deploy state did published held
+  local pr=$1 merge_sha sid deploy state did site published held url
   need netlify
+  merge_sha=$(pr_snapshot "$pr" | jqr -r '.mergeCommit.oid // ""') || die "$E_FAIL" "couldn't read the preview"
+  [ -n "$merge_sha" ] || die "$E_WAIT" "GitHub hasn't finished recording the publish yet"
   sid=$(site_id)
   deploy=$(netlify api listSiteDeploys --data "$(jq -n --arg s "$sid" '{site_id:$s, per_page:100}')" \
     | jqr -c --arg c "$merge_sha" 'first(.[] | select(.context == "production" and .commit_ref == $c)) // empty') \
     || die "$E_FAIL" "couldn't read the app's versions"
   if [ -z "$deploy" ]; then
-    held=$(netlify api listSiteBuilds --data "$(jq -n --arg s "$sid" '{site_id:$s}')" \
-      | jqr -r --arg c "$merge_sha" '[.[] | select(.sha == $c and .deploy_state == "pending_review")] | length') \
-      || die "$E_FAIL" "couldn't read the app's builds"
+    held=$(held_state "$merge_sha")
     [ "$held" = 0 ] || die "$E_HELD" "Netlify is holding the new version until an admin approves this person"
     die "$E_WAIT" "the new version hasn't started building yet"
   fi
-  state=$(printf '%s' "$deploy" | jqr -r .state)
-  did=$(printf '%s' "$deploy" | jqr -r .id)
+  state=$(printf '%s' "$deploy" | jqr -r .state) || die "$E_FAIL" "couldn't read the new version"
+  did=$(printf '%s' "$deploy" | jqr -r .id) || die "$E_FAIL" "couldn't read the new version"
   case "$state" in
     ready) ;;
     error | rejected) die "$E_FAIL" "the new version didn't build: $(printf '%s' "$deploy" | jqr -r '.error_message // "no reason given"')" ;;
     *) die "$E_WAIT" "the new version is still building ($state)" ;;
   esac
-  published=$(netlify api getSite --data "$(jq -n --arg s "$sid" '{site_id:$s}')" | jqr -r '.published_deploy.id // ""') \
-    || die "$E_FAIL" "couldn't read the app"
+  site=$(netlify api getSite --data "$(jq -n --arg s "$sid" '{site_id:$s}')") || die "$E_FAIL" "couldn't read the app"
+  published=$(printf '%s' "$site" | jqr -r '.published_deploy.id // ""') || die "$E_FAIL" "couldn't read the app"
   [ "$published" = "$did" ] || die "$E_PAUSED" "the new version is ready, but publishing is paused on this app"
-  echo "live=$(netlify api getSite --data "$(jq -n --arg s "$sid" '{site_id:$s}')" | jqr -r '.ssl_url // .url')"
+  url=$(printf '%s' "$site" | jqr -r '.ssl_url // .url') || die "$E_FAIL" "couldn't read the app's address"
+  echo "live=$url"
 }
 
 case "${1:-}" in
   check) [ $# -eq 2 ] || die "$E_USAGE" "usage: publish.sh check <pr>"; check "$2" ;;
   merge) [ $# -eq 3 ] || die "$E_USAGE" "usage: publish.sh merge <pr> <sha>"; merge "$2" "$3" ;;
-  status) [ $# -eq 2 ] || die "$E_USAGE" "usage: publish.sh status <merge-sha>"; status "$2" ;;
+  status) [ $# -eq 2 ] || die "$E_USAGE" "usage: publish.sh status <pr>"; status "$2" ;;
   *) die "$E_USAGE" "usage: publish.sh check|merge|status …" ;;
 esac

@@ -43,7 +43,7 @@ prepare() {
 }
 
 push() {
-  local url=$1 app=$2
+  local url=$1 app=$2 head
   [ "$(git branch --show-current)" = people-main ] || die "$E_FAIL" "run 'prepare' first"
   if ! git rev-parse -q --verify HEAD >/dev/null; then
     git commit -q -m "Start $app on the People platform" || die "$E_FAIL" "couldn't save the clean start"
@@ -54,7 +54,8 @@ push() {
   [ "$(git remote get-url origin)" = "$url" ] && [ "$(git remote get-url --push --all origin)" = "$url" ] \
     || die "$E_FAIL" "this folder would push somewhere other than $url"
   git push -q -u origin people-main:main || die "$E_FAIL" "couldn't push to $url"
-  echo "pushed=$(git rev-parse --short HEAD)"
+  head=$(git rev-parse --short HEAD) || die "$E_FAIL" "pushed, but couldn't read the commit"
+  echo "pushed=$head"
 }
 
 case "${1:-}" in

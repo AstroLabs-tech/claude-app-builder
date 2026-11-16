@@ -27,4 +27,5 @@ if ! git diff --binary origin/main "$good" | git apply --index --3way >/dev/null
 fi
 git diff --cached --quiet && die "$E_FAIL" "nothing to undo: the preview line already matches the good version"
 git commit -q -m "Put back the version from before: $2" || die "$E_FAIL" "couldn't save the undo"
-echo "undo_commit=$(git rev-parse --short HEAD)"
+undo_commit=$(git rev-parse --short HEAD) || die "$E_FAIL" "saved the undo, but couldn't read it back"
+echo "undo_commit=$undo_commit"

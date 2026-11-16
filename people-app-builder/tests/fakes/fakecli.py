@@ -71,6 +71,9 @@ def netlify(args):
             return out(sites[sid])
         if method == "getSite":
             sid = data["site_id"]
+            if sid.endswith(".netlify.app"):
+                name = sid[: -len(".netlify.app")]
+                sid = next((k for k, v in sites.items() if v["name"] == name), sid)
             if sid not in sites:
                 fail("Error: Not Found")
             return out(sites[sid])
@@ -132,6 +135,9 @@ def netlify(args):
         save(st)
         return sys.stdout.write("Set environment variable %s=%s\n" % (name, value))
     if args[0] == "link":
+        if n.pop("link_fail_once", None):
+            save(st)
+            fail("Error: link failed")
         sid = args[args.index("--id") + 1]
         os.makedirs(".netlify", exist_ok=True)
         with open(".netlify/state.json", "w") as f:
@@ -205,17 +211,6 @@ def gh(args):
             fail("no pull requests found")
         if args[1] == "view":
             return jq_filter(pr, jq_expr) if jq_expr else out(pr)
-        if args[1] == "checks":
-            states = [c["state"] for c in pr.get("checks", [])]
-            if pr.get("move_head_after_checks"):
-                pr["headRefOid"] = pr["move_head_after_checks"]
-                del pr["move_head_after_checks"]
-                save(st)
-            if any(s == "FAILURE" for s in states):
-                sys.exit(1)
-            if any(s == "PENDING" for s in states):
-                sys.exit(8)
-            return
         if args[1] == "merge":
             want = args[args.index("--match-head-commit") + 1] if "--match-head-commit" in args else None
             if want and want != pr["headRefOid"]:

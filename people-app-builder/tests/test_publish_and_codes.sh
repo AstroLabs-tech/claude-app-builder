@@ -55,41 +55,68 @@ test_run_dev_passes_codes_in_environment() {
 }
 
 # ---------------------------------------------------------------- publish.sh
-pr_state() { # checks-json [extra]
-  jq -n --argjson checks "$1" '{github: {prs: {"7": {state: "OPEN", headRefName: "preview", baseRefName: "main",
-    headRefOid: "abc", checks: $checks, merge_sha: "m123"}}},
-    netlify: {sites: {"site-1": {id: "site-1", ssl_url: "https://reviews.netlify.app", published_deploy: {id: "old"}}}}}'
+NETLIFY_OK='{"__typename": "StatusContext", "context": "netlify/reviews/deploy-preview", "state": "SUCCESS"}'
+ACTIONS_OK='{"__typename": "CheckRun", "name": "checks", "status": "COMPLETED", "conclusion": "SUCCESS"}'
+APP_NEUTRAL='{"__typename": "CheckRun", "name": "Header rules - reviews", "status": "COMPLETED", "conclusion": "NEUTRAL"}'
+ACTIONS_RUNNING='{"__typename": "CheckRun", "name": "checks", "status": "IN_PROGRESS", "conclusion": null}'
+ACTIONS_FAILED='{"__typename": "CheckRun", "name": "checks", "status": "COMPLETED", "conclusion": "FAILURE"}'
+pr_state() { # rollup-json
+  jq -n --argjson r "$1" '{github: {prs: {"7": {state: "OPEN", headRefName: "preview", baseRefName: "main",
+    headRefOid: "abc", mergeCommit: null, statusCheckRollup: $r, merge_sha: "m123"}}},
+    netlify: {sites: {"site-1": {id: "site-1", ssl_url: "https://reviews.netlify.app", published_deploy: {id: "old"}}},
+      builds: {"site-1": []}}}'
 }
 
 test_publish_check_ok_prints_head() {
-  setup "$(pr_state '[{"state":"SUCCESS"}]')"
+  setup "$(pr_state "[$ACTIONS_OK, $APP_NEUTRAL, $NETLIFY_OK]")"
   run publish.sh check 7
   expect_code 0
   expect_out "head=abc"
 }
 
 test_publish_check_pending_exits_6() {
-  setup "$(pr_state '[{"state":"PENDING"}]')"
+  setup "$(pr_state "[$NETLIFY_OK, $ACTIONS_RUNNING]")"
   run publish.sh check 7
   expect_code 6
 }
 
 test_publish_check_failing_exits_1() {
-  setup "$(pr_state '[{"state":"FAILURE"}]')"
+  setup "$(pr_state "[$NETLIFY_OK, $ACTIONS_FAILED]")"
   run publish.sh check 7
   expect_code 1
   expect_err "didn't pass"
 }
 
-test_publish_check_head_moved_exits_7() {
-  setup "$(pr_state '[{"state":"SUCCESS"}]')"
-  st '.github.prs["7"].move_head_after_checks = "def"'
+test_publish_check_needs_netlify_even_when_actions_pass() {
+  setup "$(pr_state "[$ACTIONS_OK]")"; linked
   run publish.sh check 7
-  expect_code 7
+  expect_code 6
+  expect_err "Netlify hasn't finished"
+}
+
+test_publish_check_held_preview_exits_9() {
+  setup "$(pr_state "[$ACTIONS_OK]")"; linked
+  st '.netlify.builds["site-1"] = [{sha: "pull/7/head", deploy_state: "pending_review"}]'
+  run publish.sh check 7
+  expect_code 9
+}
+
+test_publish_check_failed_netlify_status_exits_1() {
+  setup "$(pr_state "[$ACTIONS_OK, {\"__typename\": \"StatusContext\", \"context\": \"netlify/reviews/deploy-preview\", \"state\": \"FAILURE\"}]")"
+  run publish.sh check 7
+  expect_code 1
+}
+
+test_publish_check_wrong_branches_refused() {
+  setup "$(pr_state "[$NETLIFY_OK]")"
+  st '.github.prs["7"].headRefName = "feature"'
+  run publish.sh check 7
+  expect_code 1
+  expect_err "isn't the preview going into main"
 }
 
 test_publish_merge_refuses_unchecked_head() {
-  setup "$(pr_state '[{"state":"SUCCESS"}]')"
+  setup "$(pr_state "[$NETLIFY_OK]")"
   st '.github.prs["7"].headRefOid = "def"'
   run publish.sh merge 7 abc
   expect_code 7
@@ -97,14 +124,17 @@ test_publish_merge_refuses_unchecked_head() {
 }
 
 test_publish_merge_ok() {
-  setup "$(pr_state '[{"state":"SUCCESS"}]')"
+  setup "$(pr_state "[$NETLIFY_OK]")"
   run publish.sh merge 7 abc
   expect_code 0
-  expect_out "merge=m123"
+  expect_out "merged=yes"
+  expect_state '.github.prs["7"].mergeCommit.oid' m123
 }
 
 status_state() { # deploy-state published-id
-  jq -n --arg s "$1" --arg p "$2" '{netlify: {
+  jq -n --arg s "$1" --arg p "$2" '{
+    github: {prs: {"7": {state: "MERGED", headRefName: "preview", baseRefName: "main", headRefOid: "abc", mergeCommit: {oid: "m123"}}}},
+    netlify: {
     sites: {"site-1": {id: "site-1", ssl_url: "https://reviews.netlify.app", published_deploy: {id: $p}}},
     deploys: {"site-1": [{id: "d2", context: "production", state: $s, commit_ref: "m123", error_message: "Build script returned non-zero exit code"}]},
     builds: {"site-1": []}}}'
@@ -112,26 +142,34 @@ status_state() { # deploy-state published-id
 
 test_publish_status_live() {
   setup "$(status_state ready d2)"; linked
-  run publish.sh status m123
+  run publish.sh status 7
   expect_code 0
   expect_out "live=https://reviews.netlify.app"
 }
 
+test_publish_status_merge_not_recorded_yet_exits_6() {
+  setup "$(status_state ready d2)"; linked
+  st '.github.prs["7"].mergeCommit = null'
+  run publish.sh status 7
+  expect_code 6
+  expect_err "hasn't finished recording"
+}
+
 test_publish_status_ready_but_paused_exits_8() {
   setup "$(status_state ready d1)"; linked
-  run publish.sh status m123
+  run publish.sh status 7
   expect_code 8
 }
 
 test_publish_status_building_exits_6() {
   setup "$(status_state building d1)"; linked
-  run publish.sh status m123
+  run publish.sh status 7
   expect_code 6
 }
 
 test_publish_status_error_exits_1_with_reason() {
   setup "$(status_state error d1)"; linked
-  run publish.sh status m123
+  run publish.sh status 7
   expect_code 1
   expect_err "non-zero exit code"
 }
@@ -139,7 +177,7 @@ test_publish_status_error_exits_1_with_reason() {
 test_publish_status_held_exits_9() {
   setup "$(status_state ready d1)"; linked
   st '.netlify.deploys["site-1"] = [] | .netlify.builds["site-1"] = [{sha: "m123", deploy_state: "pending_review"}]'
-  run publish.sh status m123
+  run publish.sh status 7
   expect_code 9
 }
 
@@ -170,6 +208,14 @@ test_wip_ignores_claude_and_own_address() {
   run wip-check.sh
   expect_code 0
   expect_out "pr=4"
+}
+
+test_wip_bad_reply_is_an_error_not_nobody() {
+  setup '{"github": {"prs": {"4": {"number": 4, "head": "preview", "state": "OPEN", "commits": [{"authors": null}]}}}}'
+  git init -q . && git config user.email ribal@astrolabs.com
+  run wip-check.sh
+  expect_code 1
+  expect_err "couldn't read who made"
 }
 
 test_wip_flags_someone_else() {

@@ -14,8 +14,10 @@ need gh jq git
 mine=$( { git config --global user.email || true; git config user.email || true; } | tr '[:upper:]' '[:lower:]' | sort -u)
 prs=$(gh pr list --head preview --state open --json number,commits) || die "$E_FAIL" "couldn't read the open previews"
 printf '%s' "$prs" | jqr -r '.[] | "pr=\(.number)"'
-others=$(printf '%s' "$prs" | jqr -r '.[].commits[].authors[].email | ascii_downcase' | sort -u \
-  | grep -vx 'noreply@anthropic.com' | grep -vxF -f <(printf '%s\n' "$mine") || true)
+authors=$(printf '%s' "$prs" | jqr -r '.[].commits[].authors[].email | ascii_downcase') \
+  || die "$E_FAIL" "couldn't read who made the open preview's changes"
+others=$(printf '%s\n' "$authors" | sort -u | grep -v '^$' | grep -vx 'noreply@anthropic.com' \
+  | grep -vxF -f <(printf '%s\n' "$mine") || true)
 [ -n "$others" ] || exit 0
 printf '%s\n' "$others" | sed 's/^/other=/'
 exit "$E_CLASH"

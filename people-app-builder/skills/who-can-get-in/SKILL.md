@@ -40,6 +40,7 @@ all?"*). The script lowercases and trims, and skips anything that isn't an email
 | `access.sh approve <test\|live> <email>…` | per email: `approved`, `already`, `skipped … not-an-email`, `failed …`, `unblocked …` (an old block lifted), or `unchecked … old-block-not-checked` |
 | `access.sh remove <email>…` | per list: `removed <email> <list>`, `also_blocked <list> <id> <their email>` (someone else's account that held this address unverified), `covered_by_domain <email> <list>`, `no_list <list>` |
 | `access.sh lock <test\|live>` | `locked=yes`, or `unapproved <id> <emails>` lines |
+| `access.sh block <account-id>…` | `blocked <id> <list>`, or `failed <id> …` |
 
 `remove` looks every account up **before** changing anything, takes the person off
 both lists, and blocks every account that holds the address, because the list only
@@ -56,8 +57,10 @@ Run it **after** at least the builder's own email is approved.
 
 - `locked=yes` (exit 0): only approved people can get in.
 - `unapproved …` lines (exit 4): name those people to the builder and ask, for each,
-  whether to approve or remove them. Do it, then run `lock` again. Until it passes,
-  never say only approved people can get in.
+  whether to approve or remove them (`approve` / `remove` by email). An account shown
+  as `no-verified-address` has no email to act on: if the builder doesn't recognise
+  it, `block <account-id>`. Then run `lock` again. Until it passes, never say only
+  approved people can get in.
 
 ## Exit codes
 

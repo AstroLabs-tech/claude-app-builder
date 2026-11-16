@@ -19,11 +19,12 @@ the app's folder: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/<script>"`.
    sign-in isn't set up yet — your admin needs to finish it (it needs the app's real
    web address). Your preview keeps working in the meantime."*
 3. **Check it's safe to publish:** `publish.sh check <PR-number>` (the open preview).
-   It checks every check passed on the preview's current version, including
-   Netlify's, and prints `head=<sha>`; keep it for step 5. Exit 6: still checking,
-   so try again shortly. Exit 7: someone saved new changes meanwhile, so check again.
-   Exit 1: the preview didn't pass; never publish it. If this stops you, nothing has
-   been changed.
+   It reads the preview's current version and every check on it in one go, requires
+   all of them to have passed **and** Netlify's own preview to have built, and prints
+   `head=<sha>`; keep it for step 5. Exit 6: still checking or building, so try again
+   shortly. Exit 9: Netlify is holding the preview for the one-time admin OK (see
+   **save-preview** step 6). Exit 1: the preview didn't pass; never publish it. If
+   this stops you, nothing has been changed.
 4. **Make sure someone can get in and nobody else can — every time.** Run
    `access.sh list live`. If it shows `count=0`, note that (step 6 needs it), approve
    the builder's own work email (`git config --global user.email`) with
@@ -33,9 +34,10 @@ the app's folder: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/<script>"`.
    builder approved, the setting switched on), so say what was done.
 5. **Publish:** `publish.sh merge <PR-number> <head>` merges exactly the version that
    was checked (a normal merge, so each live version maps to a commit on `main`) and
-   prints `merge=<sha>`. Exit 7: someone saved changes since the check, so go back to
-   step 3. Then `publish.sh status <merge-sha>` until it prints `live=<url>`:
-   - exit 6: still building; check again in a little while;
+   prints `merged=yes`. Exit 7: someone saved changes since the check, so go back to
+   step 3. Then `publish.sh status <PR-number>` until it prints `live=<url>`:
+   - exit 6: still building (or GitHub is still recording the publish); check again
+     in a little while;
    - exit 8: the new version is ready, but publishing is paused on this app; say so,
      and never say it's live;
    - exit 9: Netlify is holding it for the same one-time admin OK as a first preview
