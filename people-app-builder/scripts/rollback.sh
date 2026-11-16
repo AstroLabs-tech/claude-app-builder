@@ -20,12 +20,21 @@ deploys_page() {
 }
 
 # Every state where a production build may still finish and publish over the rollback.
-# (pending_review waits for an admin and is reported separately below.)
+# Builds held for an admin's approval (pending_review) only show in the builds list;
+# held_live() reports those.
 ACTIVE='["new", "enqueued", "building", "uploading", "uploaded", "preparing", "prepared", "processing", "processed", "retrying", "accepted"]'
 
 busy_now() {
   deploys_page 1 | jqr -r --argjson a "$ACTIVE" '[.[] | select(.context == "production" and (.state as $s | $a | index($s)))] | length' \
     || die "$E_FAIL" "couldn't read the app's versions"
+}
+
+# Production builds (not previews) held for an admin's approval: once approved, they
+# would publish over the rollback.
+held_live() {
+  netlify api listSiteBuilds --data "$(jq -n --arg s "$sid" '{site_id:$s}')" \
+    | jqr -r '[.[] | select(.deploy_state == "pending_review" and ((.sha // "") | startswith("pull/") | not))] | length' \
+    || die "$E_FAIL" "couldn't read the app's builds"
 }
 
 live_now() {
@@ -37,9 +46,14 @@ live_now() {
 # restored version still the live one? Re-running the rollback when it still holds would
 # go back one version too far.
 if [ "${1:-}" = check ]; then
-  [ $# -eq 2 ] || die "$E_USAGE" "usage: rollback.sh check <restored-id>"
+  [ $# -eq 2 ] && [ -n "$2" ] || die "$E_USAGE" "usage: rollback.sh check <restored-id>"
+  known=$(deploys_page 1 | jqr -r --arg d "$2" '[.[] | select(.id == $d and .context == "production")] | length') \
+    || die "$E_FAIL" "couldn't read the app's versions"
+  [ "$known" != 0 ] || die "$E_USAGE" "'$2' isn't one of this app's recent live versions; use the restored= value"
   busy=$(busy_now) || exit $?
   [ "$busy" = 0 ] || die "$E_WAIT" "the new live version is still building; check again shortly"
+  held=$(held_live) || exit $?
+  [ "$held" = 0 ] || die "$E_HELD" "a new live version is waiting for an admin's approval; once approved it would replace the rollback"
   live=$(live_now) || exit $?
   if [ "$live" = "$2" ]; then echo "rollback=holds"; else echo "rollback=replaced"; fi
   exit 0

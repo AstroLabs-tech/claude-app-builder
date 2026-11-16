@@ -18,7 +18,7 @@ good=$1
 
 rc=0
 reason=$(bash "$HERE/preview-branch.sh" 2>&1 >/dev/null) || rc=$?
-reason=${reason#STOP: }
+reason=$(printf '%s\n' "$reason" | sed -n 's/^STOP: //p' | tail -1)
 [ "$rc" -eq 0 ] || die "$rc" "couldn't get onto the preview line: ${reason:-unknown reason} (no undo was tried)"
 git cat-file -e "$good^{commit}" 2>/dev/null || die "$E_FAIL" "the good version isn't on this computer"
 

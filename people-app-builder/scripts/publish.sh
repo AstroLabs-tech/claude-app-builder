@@ -4,7 +4,8 @@
 #   publish.sh merge <pr> <sha>    merge exactly that head (normal merge)            -> merged=yes
 #   publish.sh status <pr>         is the merged version live yet?                   -> live=<url>
 # Exit: 0 ok; 6 still building/checking (run again shortly); 7 someone pushed meanwhile
-# (check again); 8 ready but publishing is paused; 9 held for an admin's approval; 1 failure.
+# (check again); 8 ready but not the live one (paused, or an older version put back);
+# 9 held for an admin's approval; 1 failure.
 
 # This script's folder; on Windows the path may use backslashes, which dirname ignores.
 HERE=${0%[/\\]*}
@@ -60,7 +61,7 @@ merge() {
 }
 
 status() {
-  local pr=$1 snap merge_sha sid deploys deploy state did site published url held locked newer
+  local pr=$1 snap merge_sha sid deploys deploy state did site published url held locked live_commit out
   need netlify
   snap=$(pr_snapshot "$pr")
   [ "$(printf '%s' "$snap" | jqr -r .state)" = MERGED ] || die "$E_FAIL" "pull request $pr hasn't been published"
@@ -89,11 +90,17 @@ status() {
   if [ "$published" != "$did" ]; then
     locked=$(printf '%s' "$site" | jqr -r '.published_deploy.locked // "unknown"') || die "$E_FAIL" "couldn't read the app"
     [ "$locked" != true ] || die "$E_PAUSED" "the new version is ready, but publishing is paused on this app"
-    # Only say it's live if the live version is provably a later production build of
-    # main, which then includes this one. An older live version (put back) isn't.
-    newer=$(printf '%s' "$deploys" | jqr -r --arg p "$published" --argjson ours "$deploy" \
-      'first(.[] | select(.id == $p and .context == "production" and .created_at > $ours.created_at)) | "yes"' 2>/dev/null) || newer=""
-    [ "$newer" = yes ] || die "$E_PAUSED" "the new version is ready, but an older version is still the live one"
+    # Only say it's live if the live version's commit contains the merged one (git
+    # ancestry). A newer timestamp alone isn't proof: a redeploy of an old commit, a
+    # put-back older version, or a manual deploy can all be newer.
+    live_commit=$(printf '%s' "$deploys" | jqr -r --arg p "$published" \
+      'first(.[] | select(.id == $p and .context == "production")) | .commit_ref // ""') \
+      || die "$E_FAIL" "couldn't read the live version"
+    [ -n "$live_commit" ] || die "$E_PAUSED" "the new version is ready, but a different version is live"
+    need git
+    out=$(git fetch -q origin 2>&1) || git_failed "check which version is live" "$out"
+    git merge-base --is-ancestor "$merge_sha" "$live_commit" 2>/dev/null \
+      || die "$E_PAUSED" "the new version is ready, but an older version is still the live one"
     echo "note=newer-version-live"
   fi
   echo "live=$url"

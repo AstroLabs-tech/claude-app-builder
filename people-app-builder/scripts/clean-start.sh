@@ -20,19 +20,6 @@ need git
 SUBJECT_RE='^Start .* on the People platform$'
 KEY_RE='sk_(live|test)_|pk_live_|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|(password|secret|api[_-]?key|token)["'"'"']?[[:space:]]*[:=]'
 
-# Explain a failed git call against GitHub: a network problem is worth retrying (6);
-# a refusal (permissions, rules, missing repo) or anything unknown is not (1).
-git_failed() {
-  local what=$1 out=$2
-  if printf '%s' "$out" | grep -qiE 'returned error: 4|denied|permission|protected|rejected|not found|does not appear to be'; then
-    die "$E_FAIL" "GitHub refused to $what: $(printf '%s' "$out" | head -1)"
-  fi
-  if printf '%s' "$out" | grep -qiE 'could not resolve host|connection (refused|reset|timed out)|timed out|network is unreachable|failed to connect'; then
-    die "$E_WAIT" "couldn't reach GitHub to $what; try again in a moment"
-  fi
-  die "$E_FAIL" "couldn't $what: $(printf '%s' "$out" | head -1)"
-}
-
 prepare() {
   local url=$1
   [ ! -f .git ] || die "$E_FAIL" "this folder is part of another git project (a worktree or submodule); copy the app into a folder of its own first"

@@ -174,15 +174,18 @@ def gh(args):
         method = args[args.index("-X") + 1] if "-X" in args else "GET"
         path = next(a for a in args[1:] if a.startswith("repos/"))
         parts = path.split("/")
-        if parts[1:3] == ["{owner}", "{repo}"] and parts[3] == "pulls" and parts[5] == "commits":
+        if parts[1:3] == ["{owner}", "{repo}"] and parts[3] == "pulls":
             pr = g.get("prs", {}).get(parts[4])
             if pr is None:
                 fail("gh: Not Found (HTTP 404)")
-            # REST lists each commit's author only (co-authors live in the message)
-            data = [{"commit": {"author": {"email": (c.get("authors") or [{}])[0].get("email")}}}
-                    for c in pr.get("commits", [])]
-            if any(c.get("authors") is None for c in pr.get("commits", [])):
+            commits = pr.get("commits", [])
+            if len(parts) == 5:  # the PR itself: its real commit count
+                return jq_filter({"commits": pr.get("total_commits", len(commits))}, jq_expr)
+            if any(c.get("authors") is None for c in commits):
                 fail("gh: unexpected reply")
+            # REST lists each commit's author only (co-authors live in the message), max 250
+            data = [{"commit": {"author": {"email": (c.get("authors") or [{}])[0].get("email")}}}
+                    for c in commits[:250]]
             return jq_filter(data, jq_expr) if jq_expr else out(data)
         repo = g.setdefault("repos", {}).get("/".join(parts[1:3]))
         if repo is None:

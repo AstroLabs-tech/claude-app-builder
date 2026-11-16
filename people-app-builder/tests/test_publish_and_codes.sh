@@ -180,16 +180,36 @@ test_publish_status_ready_but_paused_exits_8() {
   expect_code 8
 }
 
+# A git history m0 -> m1 -> m2 with an "origin" to fetch; sets M0 M1 M2 to their shas.
+git_history() {
+  git init -q -b main . && git config user.email t@x.com && git config user.name T
+  for c in m0 m1 m2; do echo "$c" > f && git add f && git commit -qm "$c"; done
+  M2=$(git rev-parse HEAD); M1=$(git rev-parse HEAD~1); M0=$(git rev-parse HEAD~2)
+  git clone -q --bare . "$WORK/origin.git" && git remote add origin "$WORK/origin.git"
+}
+# deploy d2 is the merged version (commit $1); the live one is d9 with commit $2, built
+# LATER (as a redeploy of an older commit would be)
+ancestry_state() {
+  jq -n --arg merge "$1" --arg live "$2" '{
+    github: {prs: {"7": {state: "MERGED", mergeCommit: {oid: $merge}}}},
+    netlify: {sites: {"site-1": {id: "site-1", ssl_url: "https://reviews.netlify.app", published_deploy: {id: "d9", locked: false}}},
+      deploys: {"site-1": [{id: "d9", context: "production", state: "ready", commit_ref: $live, created_at: "2026-11-16T12:00:00Z"},
+                           {id: "d2", context: "production", state: "ready", commit_ref: $merge, created_at: "2026-11-16T10:00:00Z"}]},
+      builds: {"site-1": []}}}'
+}
+
 test_publish_status_newer_version_live_is_success() {
-  setup "$(status_state ready d9 false)"; linked
+  setup; git_history; linked
+  ancestry_state "$M1" "$M2" > "$FAKE_STATE"
   run publish.sh status 7
   expect_code 0
   expect_out "note=newer-version-live"
   expect_out "live=https://reviews.netlify.app"
 }
 
-test_publish_status_older_version_live_is_not_called_live() {
-  setup "$(status_state ready d1 false)"; linked
+test_publish_status_redeploy_of_older_commit_is_not_called_live() {
+  setup; git_history; linked
+  ancestry_state "$M1" "$M0" > "$FAKE_STATE"
   run publish.sh status 7
   expect_code 8
   expect_err "an older version is still the live one"
@@ -269,11 +289,19 @@ test_wip_bad_reply_is_an_error_not_nobody() {
 
 test_wip_refuses_to_guess_past_github_250_commit_limit() {
   setup "$(jq -n '{github: {prs: {"4": {number: 4, head: "preview", state: "OPEN",
-    commits: [range(0; 250) | {authors: [{email: "ribal@astrolabs.com"}]}]}}}}')"
+    commits: [range(0; 260) | {authors: [{email: "ribal@astrolabs.com"}]}]}}}}')"
   git init -q . && git config user.email ribal@astrolabs.com
   run wip-check.sh
   expect_code 1
   expect_err "too many changes"
+}
+
+test_wip_exactly_250_commits_is_fully_checked() {
+  setup "$(jq -n '{github: {prs: {"4": {number: 4, head: "preview", state: "OPEN",
+    commits: [range(0; 250) | {authors: [{email: "ribal@astrolabs.com"}]}]}}}}')"
+  git init -q . && git config user.email ribal@astrolabs.com
+  run wip-check.sh
+  expect_code 0
 }
 
 test_wip_flags_someone_else() {
@@ -329,6 +357,22 @@ test_rollback_check_reports_replaced() {
   run rollback.sh check d1
   expect_code 0
   expect_out "rollback=replaced"
+}
+
+test_rollback_check_reports_held_live_build() {
+  setup "$(rb_state "[$(dep d3 production ready t3 c3), $(dep d1 production ready t1 c1)]" d1)"; linked
+  st '.netlify.builds["site-1"] = [{sha: "c9", deploy_state: "pending_review"}]'
+  run rollback.sh check d1
+  expect_code 9
+  expect_err "waiting for an admin's approval"
+}
+
+test_rollback_check_rejects_unknown_id() {
+  setup "$(rb_state "[$(dep d3 production ready t3 c3), $(dep d1 production ready t1 c1)]" d1)"; linked
+  run rollback.sh check ""
+  expect_code 2
+  run rollback.sh check nonsense
+  expect_code 2
 }
 
 test_rollback_check_waits_while_building() {

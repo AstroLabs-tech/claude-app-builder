@@ -11,7 +11,7 @@ HERE=${0%[/\\]*}
 . "$HERE/lib.sh"
 need git
 
-git fetch -q origin || die "$E_FAIL" "couldn't reach GitHub"
+out=$(git fetch -q origin 2>&1) || git_failed "fetch the latest changes" "$out"
 remote_preview=no
 git rev-parse -q --verify origin/preview >/dev/null && remote_preview=yes
 
