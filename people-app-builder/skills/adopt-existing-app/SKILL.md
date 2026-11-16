@@ -94,11 +94,17 @@ sign-in for approved people, its data in the platform's managed database, and
      bash "${CLAUDE_PLUGIN_ROOT}/scripts/clean-start.sh" push "$URL" "<app name>"
      ```
      It makes the single clean-start commit, checks the folder would push only to
-     that People repo, and pushes it as `main`. If the push fails, run **both**
-     commands again: `prepare` lists everything again, and `push` folds any fixes into
-     the same single commit, so nothing removed survives in an older one. Never push
-     the old branches or tags. Then connect Netlify and sign-in as in **new-app**
-     steps 4–5.
+     that People repo, and pushes it as `main` (`already_pushed=yes` means an earlier
+     run's push went through; carry on).
+     - If the push itself failed (for example the network dropped), run **both**
+       commands again: `prepare` lists everything again, and `push` folds any fixes
+       into the same single commit, so nothing removed survives in an older one.
+     - If it says the folder *would push somewhere other than* the People repo, or
+       exits 4 (*already has a different main*, or a `people-main` line it didn't
+       make), don't retry: stop and ask the builder.
+
+     Never push the old branches or tags. Then connect Netlify and sign-in as in
+     **new-app** steps 4–5.
 
 5. **Data:** never ship pointing at a personal database or a personal copy of a
    spreadsheet. Real employee data comes in only from the source the builder confirms

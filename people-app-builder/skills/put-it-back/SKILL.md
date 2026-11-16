@@ -15,8 +15,9 @@ the risky parts; run them inside the app's folder:
 1. **Roll back:** `rollback.sh`. It republishes the last version that was really
    live before the current one, confirms it is now the live one, and prints
    `restored=<id>` and `good_commit=<sha>`.
-   - Exit 6: a new live version is still building, and it would replace the rollback
-     the moment it finished. Wait a little and run it again.
+   - Exit 6: a new live version is building and would replace the rollback when it
+     finished. If it printed `restored=…`, the rollback happened but may be replaced:
+     wait for that build, then run it again. Otherwise wait a little and run it again.
    - Exit 1: it says why: the app's versions couldn't be read, it couldn't tell which
      version is live (it won't guess), or there's nothing earlier to go back to.
      Explain in one plain sentence and stop.
@@ -29,7 +30,8 @@ the risky parts; run them inside the app's folder:
      preview line, adds one new change that undoes exactly what `main` gained after
      the good version (unpublished preview work stays), and prints `undo_commit=…`.
      Exit 4: there are unsaved changes here, so ask what to do with them first. Exit 7:
-     the undo clashes with unpublished preview work. Exit 1: it says why.
+     a clash; the message says whether getting onto the preview line clashed (no undo
+     was tried) or the undo clashed with unpublished preview work. Exit 1: it says why.
    - Then make sure only approved testers can open it (**save-preview** step 4), push
      the preview and open or update its pull request as **save-preview** does.
 

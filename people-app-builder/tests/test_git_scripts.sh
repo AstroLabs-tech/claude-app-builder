@@ -128,3 +128,43 @@ test_clean_start_refuses_other_push_url() {
   expect_code 1
   expect_err "somewhere other than"
 }
+
+test_undo_preview_clash_says_no_undo_was_tried() {
+  make_clone
+  git switch -q -c preview && echo mine > page.tsx && git add -A && git_quiet commit -m mine
+  good=$(git rev-parse HEAD~1)
+  push_to_main page.tsx theirs
+  run undo.sh "$good" "x"
+  expect_code 7
+  expect_err "no undo was tried"
+}
+
+test_clean_start_rerun_after_successful_push_is_a_no_op() {
+  make_old_app
+  run clean-start.sh prepare "$WORK/people.git"
+  run clean-start.sh push "$WORK/people.git" demo
+  expect_code 0
+  run clean-start.sh prepare "$WORK/people.git"
+  run clean-start.sh push "$WORK/people.git" demo
+  expect_code 0
+  expect_out "already_pushed=yes"
+}
+
+test_clean_start_refuses_to_overwrite_a_different_main() {
+  make_old_app
+  git_quiet clone -q "$WORK/people.git" "$WORK/other" 2>/dev/null || true
+  (cd "$WORK/other" && git switch -q -c main 2>/dev/null; echo z > z && git add z && git_quiet commit -m other && git_quiet push -q origin main)
+  run clean-start.sh prepare "$WORK/people.git"
+  run clean-start.sh push "$WORK/people.git" demo
+  expect_code 4
+  expect_err "already has a different main"
+}
+
+test_clean_start_refuses_worktree_folder() {
+  make_old_app
+  git worktree add -q "$WORK/wt" -b wt-branch >/dev/null 2>&1
+  cd "$WORK/wt" || exit 1
+  run clean-start.sh prepare "$WORK/people.git"
+  expect_code 1
+  expect_err "worktree or submodule"
+}

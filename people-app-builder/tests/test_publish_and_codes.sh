@@ -139,11 +139,11 @@ test_publish_merge_ok() {
   expect_state '.github.prs["7"].mergeCommit.oid' m123
 }
 
-status_state() { # deploy-state published-id
-  jq -n --arg s "$1" --arg p "$2" '{
+status_state() { # deploy-state published-id [locked]
+  jq -n --arg s "$1" --arg p "$2" --argjson l "${3:-false}" '{
     github: {prs: {"7": {state: "MERGED", headRefName: "preview", baseRefName: "main", headRefOid: "abc", mergeCommit: {oid: "m123"}}}},
     netlify: {
-    sites: {"site-1": {id: "site-1", ssl_url: "https://reviews.netlify.app", published_deploy: {id: $p}}},
+    sites: {"site-1": {id: "site-1", ssl_url: "https://reviews.netlify.app", published_deploy: {id: $p, locked: $l}}},
     deploys: {"site-1": [{id: "d2", context: "production", state: $s, commit_ref: "m123", error_message: "Build script returned non-zero exit code"}]},
     builds: {"site-1": []}}}'
 }
@@ -172,9 +172,25 @@ test_publish_status_merge_not_recorded_yet_exits_6() {
 }
 
 test_publish_status_ready_but_paused_exits_8() {
-  setup "$(status_state ready d1)"; linked
+  setup "$(status_state ready d1 true)"; linked
   run publish.sh status 7
   expect_code 8
+}
+
+test_publish_status_newer_version_live_is_success() {
+  setup "$(status_state ready d9 false)"; linked
+  run publish.sh status 7
+  expect_code 0
+  expect_out "note=newer-version-live"
+  expect_out "live=https://reviews.netlify.app"
+}
+
+test_publish_status_build_read_failure_is_an_error_not_waiting() {
+  setup "$(status_state ready d1)"; linked
+  st '.netlify.deploys["site-1"] = [] | .netlify.fail = {"listSiteBuilds": "500"}'
+  run publish.sh status 7
+  expect_code 1
+  expect_err "couldn't read the app's builds"
 }
 
 test_publish_status_building_exits_6() {
@@ -249,6 +265,30 @@ rb_state() { # deploys-json published
 dep() { # id context state published commit
   jq -n --arg i "$1" --arg c "$2" --arg s "$3" --arg p "$4" --arg r "$5" \
     '{id:$i, context:$c, state:$s, published_at:(if $p == "" then null else $p end), commit_ref:$r}'
+}
+
+test_rollback_orders_by_publish_time_not_list_position() {
+  # D1 live, D2 published (faulty), D1 restored, D3 published: going back from D3 means D1
+  setup "$(rb_state "[$(dep d3 production ready 2026-11-04 c3), $(dep d2 production ready 2026-11-02 c2), $(dep d1 production ready 2026-11-03 c1)]" d3)"; linked
+  run rollback.sh
+  expect_code 0
+  expect_out "restored=d1"
+}
+
+test_rollback_waits_for_processing_build() {
+  setup "$(rb_state "[$(dep d4 production processing '' c4), $(dep d3 production ready t3 c3), $(dep d1 production ready t1 c1)]" d3)"; linked
+  run rollback.sh
+  expect_code 6
+  expect_log_count "restoreSiteDeploy" 0
+}
+
+test_rollback_reports_build_started_meanwhile() {
+  setup "$(rb_state "[$(dep d3 production ready t3 c3), $(dep d1 production ready t1 c1)]" d3)"; linked
+  st '.netlify.restore_adds_build = true'
+  run rollback.sh
+  expect_code 6
+  expect_out "restored=d1"
+  expect_err "may replace it"
 }
 
 test_rollback_restores_previous_published_version() {

@@ -110,6 +110,9 @@ def netlify(args):
             site = sites[data["site_id"]]
             if not n.get("restore_noop"):
                 site["published_deploy"] = {"id": data["deploy_id"]}
+            if n.get("restore_adds_build"):
+                n.setdefault("deploys", {}).setdefault(data["site_id"], []).insert(
+                    0, {"id": "dnew", "context": "production", "state": "building", "published_at": None, "commit_ref": "cn"})
             save(st)
             return out({"id": data["deploy_id"]})
         fail("fake netlify: unknown api method " + method)
@@ -171,6 +174,16 @@ def gh(args):
         method = args[args.index("-X") + 1] if "-X" in args else "GET"
         path = next(a for a in args[1:] if a.startswith("repos/"))
         parts = path.split("/")
+        if parts[1:3] == ["{owner}", "{repo}"] and parts[3] == "pulls" and parts[5] == "commits":
+            pr = g.get("prs", {}).get(parts[4])
+            if pr is None:
+                fail("gh: Not Found (HTTP 404)")
+            # REST lists each commit's author only (co-authors live in the message)
+            data = [{"commit": {"author": {"email": (c.get("authors") or [{}])[0].get("email")}}}
+                    for c in pr.get("commits", [])]
+            if any(c.get("authors") is None for c in pr.get("commits", [])):
+                fail("gh: unexpected reply")
+            return jq_filter(data, jq_expr) if jq_expr else out(data)
         repo = g.setdefault("repos", {}).get("/".join(parts[1:3]))
         if repo is None:
             fail("gh: Not Found (HTTP 404)")
@@ -306,7 +319,9 @@ def curl(args):
     if path == "/users" and method == "GET":
         if "email_address" in query:
             want = query["email_address"].lower()
-            respond(200, [u for u in users if any(e["email_address"].lower() == want for e in u["email_addresses"])])
+            hits = [u for u in users if any(e["email_address"].lower() == want for e in u["email_addresses"])]
+            off, lim = int(query.get("offset", 0)), int(query.get("limit", 10))
+            respond(200, hits[off:off + lim])
         off, lim = int(query.get("offset", 0)), int(query.get("limit", 10))
         respond(200, users[off:off + lim])
     if path.startswith("/users/"):

@@ -12,10 +12,17 @@ HERE=${0%[/\\]*}
 need gh jq git
 
 mine=$( { git config --global user.email || true; git config user.email || true; } | tr '[:upper:]' '[:lower:]' | sort -u)
-prs=$(gh pr list --head preview --state open --json number,commits) || die "$E_FAIL" "couldn't read the open previews"
-printf '%s' "$prs" | jqr -r '.[] | "pr=\(.number)"'
-authors=$(printf '%s' "$prs" | jqr -r '.[].commits[].authors[].email | ascii_downcase') \
-  || die "$E_FAIL" "couldn't read who made the open preview's changes"
+prs=$(gh pr list --head preview --state open --json number --jq '.[].number' | tr -d '\r') \
+  || die "$E_FAIL" "couldn't read the open previews"
+authors=""
+for pr in $prs; do
+  echo "pr=$pr"
+  # Every commit (the pr list's commits field stops at 100). Co-authors aren't listed
+  # here, so Claude's co-author line never shows up as another person.
+  a=$(gh api --paginate "repos/{owner}/{repo}/pulls/$pr/commits" --jq '.[].commit.author.email' | tr -d '\r') \
+    || die "$E_FAIL" "couldn't read who made the open preview's changes"
+  authors+=$(printf '%s\n' "$a" | tr '[:upper:]' '[:lower:]')$'\n'
+done
 others=$(printf '%s\n' "$authors" | sort -u | grep -v '^$' | grep -vx 'noreply@anthropic.com' \
   | grep -vxF -f <(printf '%s\n' "$mine") || true)
 [ -n "$others" ] || exit 0

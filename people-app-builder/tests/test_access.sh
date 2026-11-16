@@ -243,3 +243,12 @@ test_block_refuses_malformed_id() {
   expect_out "skipped ../allowlist_identifiers not-an-account-id"
   expect_log_count "curl" 0
 }
+
+test_remove_blocks_accounts_beyond_the_first_page() {
+  setup "$(access_state)"; link_here
+  # 12 accounts: more than Clerk's default page of 10, read in pages of 5
+  for i in $(seq 1 12); do add_user sk_test_1 "$(user "user_o$i" omar@astrolabs.com verified false)"; done
+  ACCESS_PAGE_SIZE=5 run access.sh remove omar@astrolabs.com
+  expect_code 0
+  expect_state '[.clerk.sk_test_1.users[] | select(.banned)] | length' 12
+}

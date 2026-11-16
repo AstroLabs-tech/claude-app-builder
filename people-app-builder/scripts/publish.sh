@@ -30,7 +30,7 @@ CHECKS_JQ='[.statusCheckRollup[]?] as $r
     else "no-netlify" end'
 
 check() {
-  local pr=$1 snap fields verdict state head_ref base_ref head
+  local pr=$1 snap fields verdict state head_ref base_ref head held
   snap=$(pr_snapshot "$pr")
   fields=$(printf '%s' "$snap" | jqr -r '"\(.state) \(.headRefName) \(.baseRefName) \(.headRefOid)"') \
     || die "$E_FAIL" "couldn't read the preview"
@@ -44,8 +44,8 @@ check() {
     pending | no-netlify)
       # A held preview can show as pending, or as no Netlify status at all: check first.
       need netlify
-      [ "$(build_state "pull/$pr/head")" != pending_review ] \
-        || die "$E_HELD" "Netlify is holding the preview until an admin approves this person"
+      held=$(build_state "pull/$pr/head") || exit $?
+      [ "$held" != pending_review ] || die "$E_HELD" "Netlify is holding the preview until an admin approves this person"
       die "$E_WAIT" "the preview's checks or Netlify's build are still running" ;;
   esac
 }
@@ -60,7 +60,7 @@ merge() {
 }
 
 status() {
-  local pr=$1 snap merge_sha sid deploy state did site published url
+  local pr=$1 snap merge_sha sid deploy state did site published url held locked
   need netlify
   snap=$(pr_snapshot "$pr")
   [ "$(printf '%s' "$snap" | jqr -r .state)" = MERGED ] || die "$E_FAIL" "pull request $pr hasn't been published"
@@ -71,8 +71,8 @@ status() {
     | jqr -c --arg c "$merge_sha" 'first(.[] | select(.context == "production" and .commit_ref == $c)) // empty') \
     || die "$E_FAIL" "couldn't read the app's versions"
   if [ -z "$deploy" ]; then
-    [ "$(build_state "$merge_sha")" != pending_review ] \
-      || die "$E_HELD" "Netlify is holding the new version until an admin approves this person"
+    held=$(build_state "$merge_sha") || exit $?
+    [ "$held" != pending_review ] || die "$E_HELD" "Netlify is holding the new version until an admin approves this person"
     die "$E_WAIT" "the new version hasn't started building yet"
   fi
   state=$(printf '%s' "$deploy" | jqr -r .state) || die "$E_FAIL" "couldn't read the new version"
@@ -84,8 +84,13 @@ status() {
   esac
   site=$(netlify api getSite --data "$(jq -n --arg s "$sid" '{site_id:$s}')") || die "$E_FAIL" "couldn't read the app"
   published=$(printf '%s' "$site" | jqr -r '.published_deploy.id // ""') || die "$E_FAIL" "couldn't read the app"
-  [ "$published" = "$did" ] || die "$E_PAUSED" "the new version is ready, but publishing is paused on this app"
   url=$(printf '%s' "$site" | jqr -r '.ssl_url // .url') || die "$E_FAIL" "couldn't read the app's address"
+  if [ "$published" != "$did" ]; then
+    locked=$(printf '%s' "$site" | jqr -r '.published_deploy.locked // false') || die "$E_FAIL" "couldn't read the app"
+    [ "$locked" != true ] || die "$E_PAUSED" "the new version is ready, but publishing is paused on this app"
+    # Not paused: an even newer version went live meanwhile, and it includes this one.
+    echo "note=newer-version-live"
+  fi
   echo "live=$url"
 }
 

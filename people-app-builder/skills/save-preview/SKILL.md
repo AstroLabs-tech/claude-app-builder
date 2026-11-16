@@ -18,6 +18,8 @@ plugin's scripts do the risky parts; run them inside the app's folder:
    someone else has unpublished changes: ask before continuing — *"Heads up — Sam
    already has a change in progress on this app. Want to build on top of theirs, or
    wait?"* (One owner at a time per app.) It also prints `pr=<n>` if a preview is open.
+   Exit 1 means it couldn't tell whose work is there: stop and explain in one plain
+   sentence; don't carry on, or you might build on someone else's work unasked.
 2. **Move onto the working line:** `preview-branch.sh`. It switches to `preview`
    (carrying unsaved changes along), brings it up to date with GitHub's copy and with
    anything newer on the live line, and prints `changes=yes|no` and `waiting=<n>`
@@ -27,7 +29,8 @@ plugin's scripts do the risky parts; run them inside the app's folder:
 3. **Save the work.** If `changes=yes`, stage everything and commit with a short,
    plain message describing what changed (e.g. "Add a contact form"). The builder's
    name is the author; the `Co-Authored-By: Claude` trailer stays on. If
-   `changes=no` and `waiting=0`:
+   `changes=no` and `waiting` is above 0, saved work is waiting to go up (say, after
+   a failed push): carry on to step 4. If `changes=no` and `waiting=0`:
    - a preview is already open (`pr=<n>` in step 1) → run step 4, then skip to
      step 6 and re-share its link;
    - no open preview → say *"There's nothing new to preview yet — it's the same as

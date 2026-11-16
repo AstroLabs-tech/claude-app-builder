@@ -35,7 +35,9 @@ the app's folder: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/<script>"`.
 5. **Publish:** `publish.sh merge <PR-number> <head>` merges exactly the version that
    was checked (a normal merge, so each live version maps to a commit on `main`) and
    prints `merged=yes`. Exit 7: someone saved changes since the check, so go back to
-   step 3. Then `publish.sh status <PR-number>` until it prints `live=<url>`:
+   step 3. Then `publish.sh status <PR-number>` until it prints `live=<url>` (with
+   `note=newer-version-live`, an even newer version went live meanwhile and includes
+   this one; it's still live):
    - exit 6: still building (or GitHub is still recording the publish); check again
      in a little while;
    - exit 8: the new version is ready, but publishing is paused on this app; say so,

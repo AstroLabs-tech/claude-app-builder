@@ -39,12 +39,15 @@ run() {
 
 state() { jq -r "$1" "$FAKE_STATE"; }
 
+# Every failed check is recorded, so a test fails on ANY failed check, not just its
+# last one (bash ignores errexit inside conditional contexts, so we don't rely on it).
 check() {
   local what=$1
   shift
   if "$@"; then return 0; fi
   printf '    FAILED: %s\n      code=%s\n      out=%s\n      err=%s\n' "$what" "${CODE:-}" "${OUT:-}" "${ERR:-}"
-  return 1
+  echo "$what" >> "$FAILURES"
+  return 0
 }
 
 expect_code() { check "exit code $1" [ "$CODE" = "$1" ]; }
@@ -55,22 +58,31 @@ expect_log_count() { check "log has $2 × '$1'" [ "$(grep -cF -- "$1" "$FAKE_LOG
 
 files=("$@")
 [ ${#files[@]} -gt 0 ] || files=("$HERE"/test_*.sh)
+FAILURES="$FAKES/.failures"
+export FAILURES
 for file in "${files[@]}"; do
   # shellcheck source=/dev/null
-  source "$file"
+  if ! source "$file"; then
+    echo "can't load $file" >&2
+    exit 1
+  fi
   for t in $(declare -F | awk '{print $3}' | grep '^test_'); do
-    if ( set -e; $t ) >"$FAKES/.out" 2>&1; then
+    : > "$FAILURES"
+    rc=0
+    ( $t ) >"$FAKES/.out" 2>&1 || rc=$?
+    if [ "$rc" -eq 0 ] && [ ! -s "$FAILURES" ]; then
       PASS=$((PASS + 1))
       printf 'ok   %s\n' "$t"
     else
       FAIL=$((FAIL + 1))
       FAILED+=("$t")
-      printf 'FAIL %s\n' "$t"
+      printf 'FAIL %s%s\n' "$t" "$([ "$rc" -eq 0 ] || echo " (exit $rc)")"
       sed 's/^/  /' "$FAKES/.out"
     fi
     unset -f "$t"
   done
 done
+[ "$((PASS + FAIL))" -gt 0 ] || { echo "no tests ran" >&2; exit 1; }
 rm -rf "$FAKES"
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

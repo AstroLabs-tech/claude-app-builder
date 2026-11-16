@@ -21,7 +21,7 @@ HERE=${0%[/\\]*}
 . "$HERE/lib.sh"
 
 CLERK_API=https://api.clerk.com/v1
-PAGE=500
+PAGE=${ACCESS_PAGE_SIZE:-500} # Clerk's maximum; tests set a small one
 need netlify jq curl
 
 SK=""
@@ -81,16 +81,22 @@ approved_by() {
   entry_set "$2" | jq -e --arg e "$1" "$APPROVED_JQ . as \$set | \$e | approved(\$set)" >/dev/null
 }
 
-# Accounts that hold EMAIL, as "<id> <verified|unverified> <banned>". Stops on a bad reply.
+# Accounts that hold EMAIL, as "<id> <verified|unverified> <banned>", every page of them.
+# Stops on a bad reply.
 accounts_for() {
-  local enc
+  local enc off=0 n
   enc=$(jq -rn --arg e "$1" '$e | @uri')
-  api GET "/users?email_address=$enc"
-  ok || die "$E_FAIL" "couldn't look up accounts for $1 (HTTP $RC)"
-  printf '%s' "$BODY" | jq -e 'type == "array" and all(.[]; (.id | type) == "string" and .id != "")' >/dev/null \
-    || die "$E_FAIL" "the sign-in service sent an unexpected reply for $1"
-  printf '%s' "$BODY" | jqr -r --arg e "$1" '.[] |
-    "\(.id) \(if any(.email_addresses[]; (.email_address | ascii_downcase) == $e and .verification.status == "verified") then "verified" else "unverified" end) \(.banned)"'
+  while :; do
+    api GET "/users?email_address=$enc&limit=$PAGE&offset=$off"
+    ok || die "$E_FAIL" "couldn't look up accounts for $1 (HTTP $RC)"
+    printf '%s' "$BODY" | jq -e 'type == "array" and all(.[]; (.id | type) == "string" and .id != "")' >/dev/null \
+      || die "$E_FAIL" "the sign-in service sent an unexpected reply for $1"
+    printf '%s' "$BODY" | jqr -r --arg e "$1" '.[] |
+      "\(.id) \(if any(.email_addresses[]; (.email_address | ascii_downcase) == $e and .verification.status == "verified") then "verified" else "unverified" end) \(.banned)"'
+    n=$(printf '%s' "$BODY" | jqr -r length)
+    [ "$n" -eq "$PAGE" ] || break
+    off=$((off + PAGE))
+  done
 }
 
 set_banned() { # user_id true|false -> verified result

@@ -43,6 +43,10 @@ ask which team it's for before creating anything.
      again**. It reuses the site this folder is linked to and skips finished steps,
      so it never makes a second site. If the message mentions admin access on the
      repo, say *"Your access needs a fix from your admin — I can't do that part."*
+   - **Exception:** if the message says it *made the site but couldn't link this
+     folder*, don't re-run (it couldn't record the site, so a re-run would make
+     another). Stop and tell the builder their admin needs to finish connecting it,
+     giving the site id from the message.
 
    Attaching the repo starts the first build; don't start another. It has no live
    sign-in yet, so the live address won't open until the admin adds the live codes —

@@ -21,6 +21,7 @@ KEY_RE='sk_(live|test)_|pk_live_|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|(pass
 
 prepare() {
   local url=$1
+  [ ! -f .git ] || die "$E_FAIL" "this folder is part of another git project (a worktree or submodule); copy the app into a folder of its own first"
   if git rev-parse -q --verify people-main >/dev/null 2>&1; then
     if ! { [ "$(git rev-list --count people-main)" = 1 ] && git log -1 --format=%s people-main | grep -q "$SUBJECT_RE"; }; then
       die "$E_DECIDE" "a people-main branch already exists that this didn't make"
@@ -43,7 +44,7 @@ prepare() {
 }
 
 push() {
-  local url=$1 app=$2 head
+  local url=$1 app=$2 head remote_main
   [ "$(git branch --show-current)" = people-main ] || die "$E_FAIL" "run 'prepare' first"
   if ! git rev-parse -q --verify HEAD >/dev/null; then
     git commit -q -m "Start $app on the People platform" || die "$E_FAIL" "couldn't save the clean start"
@@ -53,7 +54,14 @@ push() {
   git remote get-url origin >/dev/null 2>&1 || git remote add origin "$url" || die "$E_FAIL" "couldn't add the People repo"
   [ "$(git remote get-url origin)" = "$url" ] && [ "$(git remote get-url --push --all origin)" = "$url" ] \
     || die "$E_FAIL" "this folder would push somewhere other than $url"
-  git push -q -u origin people-main:main || die "$E_FAIL" "couldn't push to $url"
+  remote_main=$(git ls-remote origin refs/heads/main | awk '{print $1}') || die "$E_FAIL" "couldn't reach $url"
+  if [ -n "$remote_main" ]; then
+    [ "$remote_main" = "$(git rev-parse HEAD)" ] \
+      || die "$E_DECIDE" "$url already has a different main; this won't overwrite it"
+    echo "already_pushed=yes" # an earlier run's push went through
+  else
+    git push -q -u origin people-main:main || die "$E_FAIL" "couldn't push to $url"
+  fi
   head=$(git rev-parse --short HEAD) || die "$E_FAIL" "pushed, but couldn't read the commit"
   echo "pushed=$head"
 }
