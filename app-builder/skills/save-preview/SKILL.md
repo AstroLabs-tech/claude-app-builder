@@ -9,8 +9,8 @@ Commit the current work, push it, and hand back the shareable preview link that
 Netlify builds for the open pull request. This never touches the live site.
 
 > **Not for People apps.** Check the repo's owner first
-> (`gh repo view "$(git remote get-url origin)" --json owner --jq .owner.login`). If
-> it's `AstroLabs-people`, or you
+> (`gh repo view "$(git remote get-url origin)" --json owner --jq .owner.login`; no
+> `origin` remote counts as "can't tell"). If it's `AstroLabs-people`, or you
 > can't tell, stop: People apps use the **people-app-builder** plugin's
 > **save-preview**, which checks the approved list first (People apps have no site
 > password). Never do this

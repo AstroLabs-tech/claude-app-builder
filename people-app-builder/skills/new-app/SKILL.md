@@ -102,8 +102,9 @@ ask which team it's for before creating anything.
    previews. Store them for local runs and previews only:
 
    ```bash
-   netlify env:set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY '<pk_test_…>' --context dev deploy-preview branch-deploy >/dev/null
-   netlify env:set CLERK_SECRET_KEY '<sk_test_…>' --context dev deploy-preview branch-deploy >/dev/null
+   netlify env:set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY '<pk_test_…>' --context dev deploy-preview branch-deploy >/dev/null \
+     && netlify env:set CLERK_SECRET_KEY '<sk_test_…>' --context dev deploy-preview branch-deploy >/dev/null \
+     || { echo "couldn't store the test codes — stop" >&2; exit 1; }
    ```
 
    The **live** codes (`pk_live_` / `sk_live_`) come later from the admin, once the

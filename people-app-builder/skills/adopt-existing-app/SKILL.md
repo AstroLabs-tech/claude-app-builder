@@ -65,8 +65,9 @@ sign-in for approved people, its data in the platform's managed database, and
    server, as in step 3, and that it builds.
    - **Prove sign-in guards everything.** Run it with the two test codes the admin
      sent, passed on the command line the way **show-me** does, never saved to a
-     file. While signed out, every page must send you to sign-in (307) and every
-     API route must refuse (401/404).
+     file. While signed out, every page except `/sign-in` and `/sign-up` must send
+     you to sign-in (307), those two must open (200), and every API route must
+     refuse (401/404).
    - **Data:** same as step 3. Tables go in `db/schema.ts` and are applied on
      publish. Real data comes only from the approved source, and only once sign-in
      and the server rules are in place (step 5).
@@ -97,9 +98,13 @@ sign-in for approved people, its data in the platform's managed database, and
      fi
      git add -A || exit 1
      git ls-files   # every file that will be pushed, not just what's new
+     # and anything that looks like a key or password inside them
+     git grep --cached -nIiE 'sk_(live|test)_|pk_live_|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|(password|secret|api[_-]?key|token)["'"'"']?[[:space:]]*[:=]' || true
      ```
-     Read that file list. Anything that looks like keys or data (`.env*`, exports,
-     `.csv` / `.xlsx`, database dumps) comes out first: `git rm --cached <file>`, add
+     Read that file list and the matches under it. Anything that looks like keys or
+     data (`.env*`, exports, `.csv` / `.xlsx`, database dumps, a real key in a source
+     file, a file of real people's names or reviews) comes out first; a key written
+     into code moves to **store-secret**: `git rm --cached <file>`, add
      it to `.gitignore`, and `git add .gitignore`. Then the second block. If the push
      fails, run **both** blocks again: the first stages everything and lists the whole
      tree for review again, and the second folds any fixes into the single clean
@@ -113,7 +118,8 @@ sign-in for approved people, its data in the platform's managed database, and
        git commit -q --amend --no-edit || exit 1
      fi
      git remote get-url origin >/dev/null 2>&1 || git remote add origin "$NEW" || exit 1
-     [ "$(git remote get-url origin)" = "$NEW" ] || { echo "wrong place — stop" >&2; exit 1; }
+     [ "$(git remote get-url origin)" = "$NEW" ] && [ "$(git remote get-url --push --all origin)" = "$NEW" ] \
+       || { echo "wrong place — stop" >&2; exit 1; }
      git push -u origin people-main:main || exit 1
      ```
      Never push the old branches or tags. Then connect Netlify and sign-in as in

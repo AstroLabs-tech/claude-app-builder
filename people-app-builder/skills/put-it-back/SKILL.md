@@ -10,7 +10,11 @@ Netlify — done entirely through the tools, never a dashboard.
 
 ## Steps
 
-1. **Find the version before the current live one.** Netlify keeps every past
+1. **Wait for any live build in progress.** If a production deploy is still
+   building (`netlify api listSiteDeploys`: `context` `production` with `state`
+   `new`, `enqueued`, `building` or `uploading`), wait for it to finish first.
+   Otherwise it would replace the rollback the moment it's done.
+2. **Find the version before the current live one.** Netlify keeps every past
    deploy. Take the newest ready **production** deploy older than the one now
    published:
    ```bash
@@ -35,10 +39,10 @@ Netlify — done entirely through the tools, never a dashboard.
    versions. `found_current=no` means the live version isn't in Netlify's list, so
    don't guess; say you couldn't tell which version to go back to. `previous=none`
    means there's nothing earlier to go back to. In all three cases, stop.
-2. **Republish it** with `netlify api restoreSiteDeploy --data '{"site_id":"…","deploy_id":"…"}'`,
+3. **Republish it** with `netlify api restoreSiteDeploy --data '{"site_id":"…","deploy_id":"…"}'`,
    then confirm the site's `published_deploy.id` is now `$PREV`. Only then is it
    rolled back.
-3. **Keep the problem from coming back.** Rolling back doesn't stop auto
+4. **Keep the problem from coming back.** Rolling back doesn't stop auto
    publishing, and `main` still holds the faulty version, so the next "make it live"
    would publish it again. Straight away, add the undo on top of the working line
    as one new change (never rewrite history). First do **save-preview** step 1
@@ -49,6 +53,7 @@ Netlify — done entirely through the tools, never a dashboard.
    ```bash
    set -o pipefail
    GOOD=<commit_ref of $PREV>
+   git diff --cached --quiet || { echo "other work is already staged — stop and ask" >&2; exit 1; }
    git fetch origin || exit 1
    git cat-file -e "$GOOD^{commit}" || { echo "good version not found here" >&2; exit 1; }
    # get onto `preview` exactly as save-preview step 2 does (GitHub's copy if it has one)
@@ -71,7 +76,7 @@ Netlify — done entirely through the tools, never a dashboard.
 > "Rolled back — your live app is the way it was before. I've also saved the undo,
 > so your next 'make it live' won't bring the problem back."
 
-Only mention the saved undo if step 3 worked; otherwise say the live app is back
+Only mention the saved undo if step 4 worked; otherwise say the live app is back
 and the undo still needs saving before the next "make it live".
 
 ## Notes & never
@@ -81,4 +86,4 @@ and the undo still needs saving before the next "make it live".
   forward instead.
 - Never tell the builder to log into Netlify or open a dashboard.
 - Never rewrite history or force-push to undo — republish the older deploy and add
-  the undo as a new change (step 3).
+  the undo as a new change (step 4).

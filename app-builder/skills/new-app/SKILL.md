@@ -11,8 +11,8 @@ connected to its own Netlify site. Assumes the one-time platform setup is done
 
 > **Not for People apps.** If the app is for the People team (or the builder's org
 > is `AstroLabs-people`), stop and use the **people-app-builder** plugin's
-> **new-app**. If both plugins are installed and the team isn't clear, ask which
-> team the app is for before creating anything.
+> **new-app**. If it isn't clear which team the app is for, ask before creating
+> anything; if it's People, stop and point them to the People plugin.
 
 ## Steps
 
