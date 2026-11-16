@@ -11,9 +11,6 @@ HERE=${0%[/\\]*}
 need netlify jq
 
 [ $# -eq 1 ] || die "$E_USAGE" "usage: held-build.sh <pr>"
-sid=$(site_id)
-state=$(netlify api listSiteBuilds --data "$(jq -n --arg s "$sid" '{site_id:$s}')" \
-  | jqr -r --arg p "pull/$1/head" '[.[] | select(.sha == $p)][0].deploy_state // "none"') \
-  || die "$E_FAIL" "couldn't read the app's builds"
+state=$(build_state "pull/$1/head")
 echo "state=$state"
 [ "$state" != pending_review ] || exit "$E_HELD"

@@ -274,6 +274,11 @@ def curl(args):
         query[k] = v
     if path in inst.get("fail", {}):
         respond(inst["fail"][path], {"errors": [{"code": "internal"}]})
+    once = inst.get("fail_once", {})
+    if "%s %s" % (method, path) in once:
+        code = once.pop("%s %s" % (method, path))
+        save(st)
+        respond(code, {"errors": [{"code": "internal"}]})
     if path == "/allowlist_identifiers" and method == "GET":
         off, lim = int(query.get("offset", 0)), int(query.get("limit", 10))
         items = inst.setdefault("allowlist", [])

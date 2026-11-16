@@ -60,6 +60,7 @@ ACTIONS_OK='{"__typename": "CheckRun", "name": "checks", "status": "COMPLETED", 
 APP_NEUTRAL='{"__typename": "CheckRun", "name": "Header rules - reviews", "status": "COMPLETED", "conclusion": "NEUTRAL"}'
 ACTIONS_RUNNING='{"__typename": "CheckRun", "name": "checks", "status": "IN_PROGRESS", "conclusion": null}'
 ACTIONS_FAILED='{"__typename": "CheckRun", "name": "checks", "status": "COMPLETED", "conclusion": "FAILURE"}'
+NETLIFY_PENDING='{"__typename": "StatusContext", "context": "netlify/reviews/deploy-preview", "state": "PENDING"}'
 pr_state() { # rollup-json
   jq -n --argjson r "$1" '{github: {prs: {"7": {state: "OPEN", headRefName: "preview", baseRefName: "main",
     headRefOid: "abc", mergeCommit: null, statusCheckRollup: $r, merge_sha: "m123"}}},
@@ -91,7 +92,14 @@ test_publish_check_needs_netlify_even_when_actions_pass() {
   setup "$(pr_state "[$ACTIONS_OK]")"; linked
   run publish.sh check 7
   expect_code 6
-  expect_err "Netlify hasn't finished"
+  expect_err "Netlify's build are still running"
+}
+
+test_publish_check_pending_netlify_but_held_exits_9() {
+  setup "$(pr_state "[$ACTIONS_OK, $NETLIFY_PENDING]")"; linked
+  st '.netlify.builds["site-1"] = [{sha: "pull/7/head", deploy_state: "pending_review"}]'
+  run publish.sh check 7
+  expect_code 9
 }
 
 test_publish_check_held_preview_exits_9() {
@@ -145,6 +153,14 @@ test_publish_status_live() {
   run publish.sh status 7
   expect_code 0
   expect_out "live=https://reviews.netlify.app"
+}
+
+test_publish_status_unmerged_pr_fails_instead_of_waiting() {
+  setup "$(status_state ready d2)"; linked
+  st '.github.prs["7"].state = "CLOSED" | .github.prs["7"].mergeCommit = null'
+  run publish.sh status 7
+  expect_code 1
+  expect_err "hasn't been published"
 }
 
 test_publish_status_merge_not_recorded_yet_exits_6() {

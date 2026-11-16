@@ -38,21 +38,20 @@ if [ -f .netlify/state.json ]; then
   site=$(get_site "$sid") || die "$E_FAIL" "this folder is linked to a Netlify site that can't be read"
   [ "$(printf '%s' "$site" | jqr -r .account_slug)" = "$acct" ] \
     || die "$E_FAIL" "this folder is linked to a Netlify site outside the $TEAM team"
-elif site=$(get_site "$NAME.netlify.app" 2>/dev/null) \
-  && [ "$(printf '%s' "$site" | jqr -r .account_slug)" = "$acct" ] \
-  && printf '%s' "$site" | jq -e --arg r "$REPO" '(.build_settings.repo_path // $r) == $r' >/dev/null; then
-  # An earlier run made this site but couldn't link the folder: reuse it, never a second one.
-  sid=$(printf '%s' "$site" | jqr -er .id) || die "$E_FAIL" "couldn't read the existing site"
-  netlify link --id "$sid" >/dev/null || die "$E_FAIL" "couldn't link this folder to the site"
 else
-  site=""
   if ! site=$(netlify api createSiteInTeam \
       --data "$(jq -n --arg a "$acct" --arg n "$NAME" '{account_slug:$a, body:{name:$n}}')" 2>"$ERRS"); then
     grep -qiE 'taken|unique|already|unprocessable' "$ERRS" && die "$E_TAKEN" "the site name '$NAME' is taken"
     die "$E_FAIL" "couldn't create the Netlify site: $(head -1 "$ERRS")"
   fi
   sid=$(printf '%s' "$site" | jqr -er .id) || die "$E_FAIL" "Netlify didn't return the new site's id"
-  netlify link --id "$sid" >/dev/null || die "$E_FAIL" "couldn't link this folder to the new site"
+  # Link at once so a re-run reuses this site. If the CLI can't, write its link file
+  # ourselves: a re-run must never create a second site.
+  if ! netlify link --id "$sid" >/dev/null 2>&1; then
+    if ! { mkdir -p .netlify && printf '{"siteId":"%s"}\n' "$sid" > .netlify/state.json; }; then
+      die "$E_FAIL" "made the site ($sid) but couldn't link this folder to it; tell the admin"
+    fi
+  fi
 fi
 
 # 2 + 3. Deploy key and repo, unless already attached; the Next.js runtime either way

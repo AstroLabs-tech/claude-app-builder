@@ -100,15 +100,22 @@ test_app_status_hooks_count_as_present() {
   expect_log_count "createHookBySiteId" 0
 }
 
-test_rerun_after_link_failure_reuses_the_site() {
+test_link_failure_still_links_so_rerun_reuses_the_site() {
   setup "$(jq '.netlify.link_fail_once = true' <<<"$BASE")"
   run connect-netlify.sh reviews reviews
-  expect_code 1
-  expect_err "couldn't link this folder"
+  expect_code 0
+  check "link file written" grep -q site-1 .netlify/state.json
   run connect-netlify.sh reviews reviews
   expect_code 0
   expect_state '.netlify.sites | length' 1
   expect_log_count "createSiteInTeam" 1
+}
+
+test_same_team_site_with_same_name_is_not_taken_over() {
+  setup "$(jq '.netlify.sites = {"site-9": {"id": "site-9", "name": "reviews", "account_slug": "ap", "build_settings": {}}}' <<<"$BASE")"
+  run connect-netlify.sh reviews reviews
+  expect_code 5
+  expect_state '.netlify.sites["site-9"].build_settings | length' 0
 }
 
 test_name_used_by_another_team_is_still_taken() {

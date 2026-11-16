@@ -209,27 +209,37 @@ test_remove_flags_domain_even_with_own_entry() {
   expect_out "removed omar@astrolabs.com test"
 }
 
-test_remove_keeps_going_when_other_account_cannot_be_read() {
+test_remove_reports_unknown_owner_when_account_unreadable() {
   setup "$(access_state)"; link_here
-  add_user sk_test_1 "$(jq -n '{id: "u_alice", banned: false, email_addresses: [{email_address: "omar@astrolabs.com", verification: {status: "unverified"}}]}')"
-  jq '.clerk.sk_test_1.fail = {"/users/u_alice": 500}' "$FAKE_STATE" > s && mv s "$FAKE_STATE"
+  add_user sk_test_1 "$(jq -n '{id: "user_alice", banned: false, email_addresses: [{email_address: "omar@astrolabs.com", verification: {status: "unverified"}}]}')"
+  jq '.clerk.sk_test_1.fail_once = {"GET /users/user_alice": 500}' "$FAKE_STATE" > s && mv s "$FAKE_STATE"
   run access.sh remove omar@astrolabs.com
-  # the ban itself also goes through /users/u_alice/ban, which the fake still serves
-  check "finished the removal" grep -q "removed omar@astrolabs.com test" <<<"$OUT"
+  expect_code 0
+  expect_out "also_blocked test user_alice unknown"
+  expect_out "removed omar@astrolabs.com test"
+  expect_state '.clerk.sk_test_1.users[0].banned' true
 }
 
 test_block_by_account_id() {
   setup "$(access_state)"; link_here
-  add_user sk_test_1 "$(jq -n '{id: "u_x", banned: false, email_addresses: []}')"
-  run access.sh block u_x
+  add_user sk_test_1 "$(jq -n '{id: "user_x1", banned: false, email_addresses: []}')"
+  run access.sh block user_x1
   expect_code 0
-  expect_out "blocked u_x test"
+  expect_out "blocked user_x1 test"
   expect_state '.clerk.sk_test_1.users[0].banned' true
 }
 
 test_block_unknown_id_fails() {
   setup "$(access_state)"; link_here
-  run access.sh block u_nope
+  run access.sh block user_nope
   expect_code 1
-  expect_out "failed u_nope"
+  expect_out "failed user_nope"
+}
+
+test_block_refuses_malformed_id() {
+  setup "$(access_state)"; link_here
+  run access.sh block ../allowlist_identifiers
+  expect_code 1
+  expect_out "skipped ../allowlist_identifiers not-an-account-id"
+  expect_log_count "curl" 0
 }

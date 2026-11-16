@@ -58,6 +58,21 @@ env_get() {
     || die "$E_FAIL" "couldn't read this app's settings from Netlify"
 }
 
+# State of the first Netlify build for a commit or "pull/<n>/head", or "none". Held builds
+# (pending_review) only show in the builds list, never in the deploys list.
+build_state() {
+  local sid
+  sid=$(site_id)
+  netlify api listSiteBuilds --data "$(jq -n --arg s "$sid" '{site_id:$s}')" \
+    | jqr -r --arg c "$1" '[.[] | select(.sha == $c)][0].deploy_state // "none"' \
+    || die "$E_FAIL" "couldn't read the app's builds"
+}
+
+# The one rule for "is this address approved?": an exact entry, or a whole-domain entry
+# (*@d, @d or d). Used by access.sh for both removing and locking.
+# shellcheck disable=SC2034
+APPROVED_JQ='def approved($set): (split("@")[1]) as $d | ($set[.] or $set["*@" + $d] or $set["@" + $d] or $set[$d]);'
+
 # "test" -> dev, "live" -> production.
 list_context() {
   case "$1" in
