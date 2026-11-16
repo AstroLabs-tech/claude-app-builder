@@ -17,9 +17,9 @@ good=$1
 [ -z "$(git status --porcelain)" ] || die "$E_DECIDE" "there are unsaved changes here; save or set them aside first"
 
 rc=0
-bash "$HERE/preview-branch.sh" >/dev/null 2>&1 || rc=$?
-[ "$rc" -ne "$E_CLASH" ] || die "$E_CLASH" "couldn't get onto the preview line: it clashes with GitHub's copy or the live line (no undo was tried)"
-[ "$rc" -eq 0 ] || die "$rc" "couldn't get onto the preview line (no undo was tried)"
+reason=$(bash "$HERE/preview-branch.sh" 2>&1 >/dev/null) || rc=$?
+reason=${reason#STOP: }
+[ "$rc" -eq 0 ] || die "$rc" "couldn't get onto the preview line: ${reason:-unknown reason} (no undo was tried)"
 git cat-file -e "$good^{commit}" 2>/dev/null || die "$E_FAIL" "the good version isn't on this computer"
 
 git diff --quiet origin/main "$good" && die "$E_FAIL" "nothing to undo: the live line already matches the good version"

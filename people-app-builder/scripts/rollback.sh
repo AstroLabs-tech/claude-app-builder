@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# put-it-back steps 1–3: republish the live version before the current one.
+# put-it-back: republish the live version before the current one.
+#   rollback.sh                       roll back; prints restored=<deploy-id>, good_commit=<sha>
+#   rollback.sh check <restored-id>   after an exit 6 that printed restored=…: did the
+#                                     rollback hold? prints rollback=holds|replaced
 # Waits for nothing: if a live build is in progress it stops with 6 (it would overwrite
 # the rollback). Only versions that were really live count. Run inside the app's folder.
-# Prints restored=<deploy-id> and good_commit=<sha>. Exit 6 busy, 1 failure/nothing to do.
+# Exit 6 busy, 1 failure/nothing to do.
 
 # This script's folder; on Windows the path may use backslashes, which dirname ignores.
 HERE=${0%[/\\]*}
@@ -25,11 +28,28 @@ busy_now() {
     || die "$E_FAIL" "couldn't read the app's versions"
 }
 
+live_now() {
+  netlify api getSite --data "$(jq -n --arg s "$sid" '{site_id:$s}')" | jqr -er '.published_deploy.id' \
+    || die "$E_FAIL" "couldn't read which version is live"
+}
+
+# After a rollback that a build may have overtaken: once nothing is building, is the
+# restored version still the live one? Re-running the rollback when it still holds would
+# go back one version too far.
+if [ "${1:-}" = check ]; then
+  [ $# -eq 2 ] || die "$E_USAGE" "usage: rollback.sh check <restored-id>"
+  busy=$(busy_now) || exit $?
+  [ "$busy" = 0 ] || die "$E_WAIT" "the new live version is still building; check again shortly"
+  live=$(live_now) || exit $?
+  if [ "$live" = "$2" ]; then echo "rollback=holds"; else echo "rollback=replaced"; fi
+  exit 0
+fi
+[ $# -eq 0 ] || die "$E_USAGE" "usage: rollback.sh | rollback.sh check <restored-id>"
+
 busy=$(busy_now) || exit $?
 [ "$busy" = 0 ] || die "$E_WAIT" "a new live version is still building; wait for it to finish first"
 
-cur=$(netlify api getSite --data "$(jq -n --arg s "$sid" '{site_id:$s}')" | jqr -er '.published_deploy.id') \
-  || die "$E_FAIL" "couldn't read which version is live"
+cur=$(live_now) || exit $?
 
 # Every version that was really live, newest publish first. List position isn't publish
 # order: a restored version is republished without moving in the list.
@@ -67,4 +87,4 @@ echo "restored=$prev_id"
 echo "good_commit=${prev#* }"
 # A build that started while this ran would publish over the rollback when it finishes.
 busy=$(busy_now) || exit $?
-[ "$busy" = 0 ] || die "$E_WAIT" "rolled back, but a new live version started building and may replace it; run this again once it finishes"
+[ "$busy" = 0 ] || die "$E_WAIT" "rolled back, but a new live version started building and may replace it; once it finishes, run 'rollback.sh check $prev_id'"

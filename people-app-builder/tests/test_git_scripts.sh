@@ -145,6 +145,32 @@ test_undo_preview_clash_says_no_undo_was_tried() {
   expect_err "no undo was tried"
 }
 
+test_undo_keeps_the_reason_when_github_is_unreachable() {
+  make_clone
+  good=$(git rev-parse HEAD)
+  git remote set-url origin "$WORK/missing.git"
+  run undo.sh "$good" "x"
+  expect_code 1
+  expect_err "couldn't reach GitHub"
+  expect_err "no undo was tried"
+}
+
+test_clean_start_refused_push_says_refused_not_retry() {
+  make_old_app
+  run clean-start.sh prepare "$(native_path "$WORK/missing.git")"
+  run clean-start.sh push "$(native_path "$WORK/missing.git")" demo
+  expect_code 1
+  expect_err "GitHub refused to read"
+}
+
+test_clean_start_unreachable_github_is_retryable() {
+  make_old_app
+  run clean-start.sh prepare https://nonexistent.invalid/people.git
+  run clean-start.sh push https://nonexistent.invalid/people.git demo
+  expect_code 6
+  expect_err "couldn't reach GitHub"
+}
+
 test_clean_start_rerun_after_successful_push_is_a_no_op() {
   make_old_app
   run clean-start.sh prepare "$URL"

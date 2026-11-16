@@ -144,7 +144,10 @@ status_state() { # deploy-state published-id [locked]
     github: {prs: {"7": {state: "MERGED", headRefName: "preview", baseRefName: "main", headRefOid: "abc", mergeCommit: {oid: "m123"}}}},
     netlify: {
     sites: {"site-1": {id: "site-1", ssl_url: "https://reviews.netlify.app", published_deploy: {id: $p, locked: $l}}},
-    deploys: {"site-1": [{id: "d2", context: "production", state: $s, commit_ref: "m123", error_message: "Build script returned non-zero exit code"}]},
+    deploys: {"site-1": [
+      {id: "d9", context: "production", state: "ready", commit_ref: "m999", created_at: "2026-11-16T12:00:00Z"},
+      {id: "d2", context: "production", state: $s, commit_ref: "m123", created_at: "2026-11-16T10:00:00Z", error_message: "Build script returned non-zero exit code"},
+      {id: "d1", context: "production", state: "ready", commit_ref: "m111", created_at: "2026-11-15T10:00:00Z"}]},
     builds: {"site-1": []}}}'
 }
 
@@ -183,6 +186,20 @@ test_publish_status_newer_version_live_is_success() {
   expect_code 0
   expect_out "note=newer-version-live"
   expect_out "live=https://reviews.netlify.app"
+}
+
+test_publish_status_older_version_live_is_not_called_live() {
+  setup "$(status_state ready d1 false)"; linked
+  run publish.sh status 7
+  expect_code 8
+  expect_err "an older version is still the live one"
+}
+
+test_publish_status_unknown_live_version_is_not_called_live() {
+  setup "$(status_state ready d_unlisted)"; linked
+  st 'del(.netlify.sites["site-1"].published_deploy.locked)'
+  run publish.sh status 7
+  expect_code 8
 }
 
 test_publish_status_build_read_failure_is_an_error_not_waiting() {
@@ -250,6 +267,15 @@ test_wip_bad_reply_is_an_error_not_nobody() {
   expect_err "couldn't read who made"
 }
 
+test_wip_refuses_to_guess_past_github_250_commit_limit() {
+  setup "$(jq -n '{github: {prs: {"4": {number: 4, head: "preview", state: "OPEN",
+    commits: [range(0; 250) | {authors: [{email: "ribal@astrolabs.com"}]}]}}}}')"
+  git init -q . && git config user.email ribal@astrolabs.com
+  run wip-check.sh
+  expect_code 1
+  expect_err "too many changes"
+}
+
 test_wip_flags_someone_else() {
   setup "$(wip_state '[{"email":"nauf@astrolabs.com"}]')"
   git init -q . && git config user.email ribal@astrolabs.com
@@ -289,6 +315,27 @@ test_rollback_reports_build_started_meanwhile() {
   expect_code 6
   expect_out "restored=d1"
   expect_err "may replace it"
+}
+
+test_rollback_check_reports_rollback_holds() {
+  setup "$(rb_state "[$(dep d3 production ready t3 c3), $(dep d1 production ready t1 c1)]" d1)"; linked
+  run rollback.sh check d1
+  expect_code 0
+  expect_out "rollback=holds"
+}
+
+test_rollback_check_reports_replaced() {
+  setup "$(rb_state "[$(dep d4 production ready t4 c4), $(dep d3 production ready t3 c3), $(dep d1 production ready t1 c1)]" d4)"; linked
+  run rollback.sh check d1
+  expect_code 0
+  expect_out "rollback=replaced"
+}
+
+test_rollback_check_waits_while_building() {
+  setup "$(rb_state "[$(dep d4 production building '' c4), $(dep d1 production ready t1 c1)]" d1)"; linked
+  run rollback.sh check d1
+  expect_code 6
+  expect_err "check again shortly"
 }
 
 test_rollback_restores_previous_published_version() {

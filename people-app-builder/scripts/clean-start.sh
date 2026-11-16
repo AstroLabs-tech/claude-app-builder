@@ -7,7 +7,8 @@
 #                                              make (or amend) the single clean-start commit
 #                                              and push it as main
 # Safe to re-run after a failed push: fixes fold into the one commit (nothing reached GitHub).
-# Exit 4 a people-main branch exists that this didn't make (ask the builder), 1 failure.
+# Exit 4 a people-main branch exists that this didn't make, or the repo already has a
+# different main (ask the builder); 6 couldn't reach GitHub (retry); 1 refused/failure.
 
 # This script's folder; on Windows the path may use backslashes, which dirname ignores.
 HERE=${0%[/\\]*}
@@ -18,6 +19,19 @@ need git
 
 SUBJECT_RE='^Start .* on the People platform$'
 KEY_RE='sk_(live|test)_|pk_live_|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|(password|secret|api[_-]?key|token)["'"'"']?[[:space:]]*[:=]'
+
+# Explain a failed git call against GitHub: a network problem is worth retrying (6);
+# a refusal (permissions, rules, missing repo) or anything unknown is not (1).
+git_failed() {
+  local what=$1 out=$2
+  if printf '%s' "$out" | grep -qiE 'returned error: 4|denied|permission|protected|rejected|not found|does not appear to be'; then
+    die "$E_FAIL" "GitHub refused to $what: $(printf '%s' "$out" | head -1)"
+  fi
+  if printf '%s' "$out" | grep -qiE 'could not resolve host|connection (refused|reset|timed out)|timed out|network is unreachable|failed to connect'; then
+    die "$E_WAIT" "couldn't reach GitHub to $what; try again in a moment"
+  fi
+  die "$E_FAIL" "couldn't $what: $(printf '%s' "$out" | head -1)"
+}
 
 prepare() {
   local url=$1
@@ -44,7 +58,7 @@ prepare() {
 }
 
 push() {
-  local url=$1 app=$2 head remote_main
+  local url=$1 app=$2 head remote_main out
   [ "$(git branch --show-current)" = people-main ] || die "$E_FAIL" "run 'prepare' first"
   if ! git rev-parse -q --verify HEAD >/dev/null; then
     git commit -q -m "Start $app on the People platform" || die "$E_FAIL" "couldn't save the clean start"
@@ -54,13 +68,14 @@ push() {
   git remote get-url origin >/dev/null 2>&1 || git remote add origin "$url" || die "$E_FAIL" "couldn't add the People repo"
   [ "$(git remote get-url origin)" = "$url" ] && [ "$(git remote get-url --push --all origin)" = "$url" ] \
     || die "$E_FAIL" "this folder would push somewhere other than $url"
-  remote_main=$(git ls-remote origin refs/heads/main | awk '{print $1}') || die "$E_FAIL" "couldn't reach $url"
+  out=$(git ls-remote origin refs/heads/main 2>&1) || git_failed "read $url" "$out"
+  remote_main=$(printf '%s\n' "$out" | awk '$2 == "refs/heads/main" {print $1}')
   if [ -n "$remote_main" ]; then
     [ "$remote_main" = "$(git rev-parse HEAD)" ] \
       || die "$E_DECIDE" "$url already has a different main; this won't overwrite it"
     echo "already_pushed=yes" # an earlier run's push went through
   else
-    git push -q -u origin people-main:main || die "$E_FAIL" "couldn't push to $url"
+    out=$(git push -q -u origin people-main:main 2>&1) || git_failed "push to $url" "$out"
   fi
   head=$(git rev-parse --short HEAD) || die "$E_FAIL" "pushed, but couldn't read the commit"
   echo "pushed=$head"

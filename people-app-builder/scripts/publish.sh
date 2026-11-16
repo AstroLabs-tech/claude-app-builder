@@ -60,15 +60,16 @@ merge() {
 }
 
 status() {
-  local pr=$1 snap merge_sha sid deploy state did site published url held locked
+  local pr=$1 snap merge_sha sid deploys deploy state did site published url held locked newer
   need netlify
   snap=$(pr_snapshot "$pr")
   [ "$(printf '%s' "$snap" | jqr -r .state)" = MERGED ] || die "$E_FAIL" "pull request $pr hasn't been published"
   merge_sha=$(printf '%s' "$snap" | jqr -r '.mergeCommit.oid // ""') || die "$E_FAIL" "couldn't read the preview"
   [ -n "$merge_sha" ] || die "$E_WAIT" "GitHub hasn't finished recording the publish yet"
   sid=$(site_id)
-  deploy=$(netlify api listSiteDeploys --data "$(jq -n --arg s "$sid" '{site_id:$s, per_page:100}')" \
-    | jqr -c --arg c "$merge_sha" 'first(.[] | select(.context == "production" and .commit_ref == $c)) // empty') \
+  deploys=$(netlify api listSiteDeploys --data "$(jq -n --arg s "$sid" '{site_id:$s, per_page:100}')") \
+    || die "$E_FAIL" "couldn't read the app's versions"
+  deploy=$(printf '%s' "$deploys" | jqr -c --arg c "$merge_sha" 'first(.[] | select(.context == "production" and .commit_ref == $c)) // empty') \
     || die "$E_FAIL" "couldn't read the app's versions"
   if [ -z "$deploy" ]; then
     held=$(build_state "$merge_sha") || exit $?
@@ -86,9 +87,13 @@ status() {
   published=$(printf '%s' "$site" | jqr -r '.published_deploy.id // ""') || die "$E_FAIL" "couldn't read the app"
   url=$(printf '%s' "$site" | jqr -r '.ssl_url // .url') || die "$E_FAIL" "couldn't read the app's address"
   if [ "$published" != "$did" ]; then
-    locked=$(printf '%s' "$site" | jqr -r '.published_deploy.locked // false') || die "$E_FAIL" "couldn't read the app"
+    locked=$(printf '%s' "$site" | jqr -r '.published_deploy.locked // "unknown"') || die "$E_FAIL" "couldn't read the app"
     [ "$locked" != true ] || die "$E_PAUSED" "the new version is ready, but publishing is paused on this app"
-    # Not paused: an even newer version went live meanwhile, and it includes this one.
+    # Only say it's live if the live version is provably a later production build of
+    # main, which then includes this one. An older live version (put back) isn't.
+    newer=$(printf '%s' "$deploys" | jqr -r --arg p "$published" --argjson ours "$deploy" \
+      'first(.[] | select(.id == $p and .context == "production" and .created_at > $ours.created_at)) | "yes"' 2>/dev/null) || newer=""
+    [ "$newer" = yes ] || die "$E_PAUSED" "the new version is ready, but an older version is still the live one"
     echo "note=newer-version-live"
   fi
   echo "live=$url"
