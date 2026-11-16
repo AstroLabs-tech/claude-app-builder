@@ -29,12 +29,20 @@ busy_now() {
     || die "$E_FAIL" "couldn't read the app's versions"
 }
 
-# Production builds (not previews) held for an admin's approval: once approved, they
-# would publish over the rollback.
+# Production builds held for an admin's approval: once approved, they would publish over
+# the rollback. A build doesn't say what kind it is; its deploy does (previews and
+# branch deploys are held the same way, and don't matter here).
 held_live() {
-  netlify api listSiteBuilds --data "$(jq -n --arg s "$sid" '{site_id:$s}')" \
-    | jqr -r '[.[] | select(.deploy_state == "pending_review" and ((.sha // "") | startswith("pull/") | not))] | length' \
+  local ids d ctx n=0
+  ids=$(netlify api listSiteBuilds --data "$(jq -n --arg s "$sid" '{site_id:$s}')" \
+    | jqr -r '.[] | select(.deploy_state == "pending_review") | .deploy_id // empty') \
     || die "$E_FAIL" "couldn't read the app's builds"
+  for d in $ids; do
+    ctx=$(netlify api getDeploy --data "$(jq -n --arg d "$d" '{deploy_id:$d}')" | jqr -r '.context // ""') \
+      || die "$E_FAIL" "couldn't read a held build"
+    [ "$ctx" != production ] || n=$((n + 1))
+  done
+  echo "$n"
 }
 
 live_now() {

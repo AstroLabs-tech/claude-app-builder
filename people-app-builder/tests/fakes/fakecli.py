@@ -104,6 +104,12 @@ def netlify(args):
             deploys = n.setdefault("deploys", {}).get(data["site_id"], [])
             page, per = int(data.get("page", 1)), int(data.get("per_page", 100))
             return out(deploys[(page - 1) * per: page * per])
+        if method == "getDeploy":
+            for deps in list(n.get("deploys", {}).values()) + [n.get("hidden_deploys", [])]:
+                for d in deps:
+                    if d["id"] == data["deploy_id"]:
+                        return out(d)
+            fail("Error: Not Found")
         if method == "listSiteBuilds":
             return out(n.setdefault("builds", {}).get(data["site_id"], []))
         if method == "restoreSiteDeploy":

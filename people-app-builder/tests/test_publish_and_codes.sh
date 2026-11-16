@@ -361,10 +361,23 @@ test_rollback_check_reports_replaced() {
 
 test_rollback_check_reports_held_live_build() {
   setup "$(rb_state "[$(dep d3 production ready t3 c3), $(dep d1 production ready t1 c1)]" d1)"; linked
-  st '.netlify.builds["site-1"] = [{sha: "c9", deploy_state: "pending_review"}]'
+  # held builds don't show in the deploy list; their deploys are only found by id
+  st '.netlify.builds["site-1"] = [{sha: "c9", deploy_state: "pending_review", deploy_id: "dh"}]
+      | .netlify.hidden_deploys = [{id: "dh", context: "production", state: "pending_review"}]'
   run rollback.sh check d1
   expect_code 9
   expect_err "waiting for an admin's approval"
+}
+
+test_rollback_check_ignores_held_branch_and_preview_builds() {
+  setup "$(rb_state "[$(dep d3 production ready t3 c3), $(dep d1 production ready t1 c1)]" d1)"; linked
+  st '.netlify.builds["site-1"] = [{sha: "c9", deploy_state: "pending_review", deploy_id: "db"},
+        {sha: "pull/1/head", deploy_state: "pending_review", deploy_id: "dp"}]
+      | .netlify.hidden_deploys = [{id: "db", context: "branch-deploy", state: "pending_review"},
+        {id: "dp", context: "deploy-preview", state: "pending_review"}]'
+  run rollback.sh check d1
+  expect_code 0
+  expect_out "rollback=holds"
 }
 
 test_rollback_check_rejects_unknown_id() {
