@@ -79,7 +79,7 @@ APPROVED_JQ='def approved($set): (split("@")[1]) as $d | ($set[.] or $set["*@" +
 # anything unknown is not (1). Network patterns are checked first.
 git_failed() {
   local what=$1 out=$2
-  if printf '%s' "$out" | grep -qiE 'could not resolve host|connection (refused|reset|timed out)|timed out|network is unreachable|failed to connect|tunnel failed|returned error: (5[0-9][0-9]|429|408)|early eof|remote end hung up'; then
+  if printf '%s' "$out" | grep -qiE 'could not resolve (host|proxy)|connection (refused|reset|timed out)|timed out|network is unreachable|failed to connect|tunnel failed|returned error: (5[0-9][0-9]|429|408)|early eof|remote end hung up'; then
     die "$E_WAIT" "couldn't reach GitHub to $what; try again in a moment"
   fi
   if printf '%s' "$out" | grep -qiE 'returned error: 4|denied|permission|protected|rejected|not found|does not appear to be'; then

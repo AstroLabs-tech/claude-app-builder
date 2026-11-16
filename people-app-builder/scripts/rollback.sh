@@ -33,10 +33,16 @@ busy_now() {
 # the rollback. A build doesn't say what kind it is; its deploy does (previews and
 # branch deploys are held the same way, and don't matter here).
 held_live() {
-  local ids d ctx n=0
-  ids=$(netlify api listSiteBuilds --data "$(jq -n --arg s "$sid" '{site_id:$s}')" \
-    | jqr -r '.[] | select(.deploy_state == "pending_review") | .deploy_id // empty') \
-    || die "$E_FAIL" "couldn't read the app's builds"
+  local ids="" page=1 body d ctx n=0
+  while :; do
+    body=$(netlify api listSiteBuilds --data "$(jq -n --arg s "$sid" --argjson p "$page" '{site_id:$s, page:$p, per_page:100}')") \
+      || die "$E_FAIL" "couldn't read the app's builds"
+    ids+=$(printf '%s' "$body" | jqr -r '.[] | select(.deploy_state == "pending_review") | .deploy_id // empty') \
+      || die "$E_FAIL" "couldn't read the app's builds"
+    ids+=$'\n'
+    [ "$(printf '%s' "$body" | jqr -r 'length')" -eq 100 ] || break
+    page=$((page + 1))
+  done
   for d in $ids; do
     ctx=$(netlify api getDeploy --data "$(jq -n --arg d "$d" '{deploy_id:$d}')" | jqr -r '.context // ""') \
       || die "$E_FAIL" "couldn't read a held build"
@@ -55,9 +61,11 @@ live_now() {
 # go back one version too far.
 if [ "${1:-}" = check ]; then
   [ $# -eq 2 ] && [ -n "$2" ] || die "$E_USAGE" "usage: rollback.sh check <restored-id>"
-  known=$(deploys_page 1 | jqr -r --arg d "$2" '[.[] | select(.id == $d and .context == "production")] | length') \
-    || die "$E_FAIL" "couldn't read the app's versions"
-  [ "$known" != 0 ] || die "$E_USAGE" "'$2' isn't one of this app's recent live versions; use the restored= value"
+  # Fetch that deploy by id (it may be far down the list) and make sure it's one of
+  # this app's live versions.
+  known=$(netlify api getDeploy --data "$(jq -n --arg d "$2" '{deploy_id:$d}')" 2>/dev/null \
+    | jqr -r --arg s "$sid" 'if .site_id == $s and .context == "production" then "yes" else "no" end') || known=no
+  [ "$known" = yes ] || die "$E_USAGE" "'$2' isn't one of this app's live versions; use the restored= value"
   busy=$(busy_now) || exit $?
   [ "$busy" = 0 ] || die "$E_WAIT" "the new live version is still building; check again shortly"
   held=$(held_live) || exit $?

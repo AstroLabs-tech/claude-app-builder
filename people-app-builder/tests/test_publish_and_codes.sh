@@ -296,6 +296,14 @@ test_wip_refuses_to_guess_past_github_250_commit_limit() {
   expect_err "too many changes"
 }
 
+test_wip_refuses_when_pr_has_more_commits_than_listed() {
+  setup "$(jq -n '{github: {prs: {"4": {number: 4, head: "preview", state: "OPEN", total_commits: 3,
+    commits: [{authors: [{email: "ribal@astrolabs.com"}]}, {authors: [{email: "ribal@astrolabs.com"}]}]}}}}')"
+  git init -q . && git config user.email ribal@astrolabs.com
+  run wip-check.sh
+  expect_code 1
+}
+
 test_wip_exactly_250_commits_is_fully_checked() {
   setup "$(jq -n '{github: {prs: {"4": {number: 4, head: "preview", state: "OPEN",
     commits: [range(0; 250) | {authors: [{email: "ribal@astrolabs.com"}]}]}}}}')"
@@ -386,6 +394,26 @@ test_rollback_check_rejects_unknown_id() {
   expect_code 2
   run rollback.sh check nonsense
   expect_code 2
+}
+
+test_rollback_check_finds_held_build_past_first_page() {
+  setup "$(rb_state "[$(dep d3 production ready t3 c3), $(dep d1 production ready t1 c1)]" d1)"; linked
+  st '.netlify.builds["site-1"] = ([range(0; 100) | {sha: "pull/1/head", deploy_state: "ready", deploy_id: "x"}]
+        + [{sha: "c9", deploy_state: "pending_review", deploy_id: "dh"}])
+      | .netlify.hidden_deploys = [{id: "dh", context: "production", state: "pending_review"}]'
+  run rollback.sh check d1
+  expect_code 9
+}
+
+test_rollback_check_accepts_restored_id_past_first_page() {
+  local d i
+  d="[$(dep d9 production ready t9 c9)"
+  for i in $(seq 1 100); do d="$d, $(dep "p$i" deploy-preview ready '' x)"; done
+  d="$d, $(dep d8 production ready t8 c8)]"
+  setup "$(rb_state "$d" d8)"; linked
+  run rollback.sh check d8
+  expect_code 0
+  expect_out "rollback=holds"
 }
 
 test_rollback_check_waits_while_building() {

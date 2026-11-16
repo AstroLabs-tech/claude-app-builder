@@ -21,7 +21,10 @@ the risky parts; run them inside the app's folder:
      meanwhile may replace it. Don't run the rollback again straight away — that could
      go back one version too far. Wait, then run `rollback.sh check <id>` (exit 6 means
      still building, so check again later). `rollback=holds`: done, carry on to step 2.
-     `rollback=replaced`: the new build went live, so run `rollback.sh` again.
+     `rollback=replaced`: the new build went live, so run `rollback.sh` again. Exit 9:
+     a new live version is waiting for an admin's approval, and approving it would
+     replace the rollback. Don't retry; tell the builder their admin must not approve
+     it until the fix is in (step 2), and that the app is back for now.
    - Exit 1: it says why: the app's versions couldn't be read, it couldn't tell which
      version is live (it won't guess), or there's nothing earlier to go back to.
      Explain in one plain sentence and stop.
