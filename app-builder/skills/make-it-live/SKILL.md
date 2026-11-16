@@ -8,6 +8,10 @@ description: Promote the previewed version to the builder's real site. Use whene
 Publish the previewed version to the live site. This is the one action that
 **always confirms first**.
 
+> **Not for People apps.** If this app's repo is in `AstroLabs-people`, stop: People
+> apps go live only through the **people-app-builder** plugin's **make-it-live**,
+> which checks the live sign-in first. Never publish a People app from here.
+
 > **Ops Hub exception.** In `AstroLabs-ops/astrolabs-cpr`, "make it live" means
 > adding the **module** the builder is on into the main app — so the change lands in
 > a shared app other people are using. Differences, all in **work-on-a-module**:

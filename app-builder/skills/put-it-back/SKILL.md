@@ -8,6 +8,10 @@ description: Roll the live site back to the previous working version. Use whenev
 Roll the live site back to the previous successful version by republishing it on
 Netlify — done entirely through the tools, never a dashboard.
 
+> **Not for People apps.** If this app's repo is in `AstroLabs-people`, stop: People
+> apps use the **people-app-builder** plugin's **put-it-back**, which also keeps the faulty change from being published again. Never do this
+> for a People app from here.
+
 ## Steps
 
 1. Find the previous successful **production** deploy (Netlify keeps every past

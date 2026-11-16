@@ -67,3 +67,38 @@ never leaves your hands. Offboard a builder by revoking their tokens.
 A private repo in the team's builder org (ops: `AstroLabs-ops`, from its `app-starter` template) + a connected
 Netlify site (preview-per-PR, production on merge, instant rollback) + a Netlify DB
 provisioned on first publish. See the `app-starter` template for the app itself.
+
+## People team — `people-app-builder`
+
+A separate plugin in this marketplace for the People team, whose apps hold employee
+data. It is the same flow with stricter defaults and its own isolated home:
+
+- **GitHub org `AstroLabs-people`** (template `AstroLabs-people/app-starter`) with its
+  own shared team account; **Netlify team "AstroLabs People"**. Nobody on the
+  Ops side can reach either. The org and team are fixed in the plugin, so builders
+  only need their two tokens.
+- **Sign-in instead of a password:** every app requires Clerk sign-in, and only
+  approved emails can create an account. The skills switch the approved list on
+  before an app is previewed or published, and flag any account made before it was
+  on: those can still sign in until they're blocked. Builders manage the list by
+  saying *"let Sara in"* / *"remove Omar"* / *"who can get in"* (**who-can-get-in**).
+  No app can be made public.
+- **Prototypes:** *"I have a prototype"* rebuilds a Claude artifact on the People
+  template and moves its who-sees-what rules to the server (**adopt-existing-app**).
+- No Ops Hub modules (`work-on-a-module`), no `make-it-private`.
+- **Windows and Mac.** On Windows the skills run in Git Bash (set-up installs Git for
+  Windows and the tools with winget), and new apps connect to Netlify through scripted
+  API calls instead of `netlify init`'s menus.
+
+Install (People builders, once), in the Claude Code tab:
+
+```
+/plugin marketplace add AstroLabs-tech/claude-app-builder
+/plugin install people-app-builder@astrolabs
+```
+
+Admin setup (org, team account, Netlify team, one Clerk application per app with
+test and live codes) is in the People template's `SETUP.md`. If you have both
+plugins installed, the People skills apply to apps in `AstroLabs-people`; the Ops
+skills to everything else. A new app has no repo yet, so with both installed the
+skills ask which team it's for before creating anything.

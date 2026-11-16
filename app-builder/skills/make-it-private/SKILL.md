@@ -9,6 +9,10 @@ Apps are **password-protected by default** (set when the app is first connected 
 new-app). This skill *changes* that: set or replace the password, switch to team
 sign-in, or — only if they explicitly ask — make the app public.
 
+> **Not for People apps.** If this app's repo is in `AstroLabs-people`, stop: People
+> apps use approved-people sign-in, never a site password or public access. Use the
+> **people-app-builder** plugin's **who-can-get-in** instead.
+
 ## Steps
 
 1. Ask what they want: **set/replace the password**, **team sign-in** (only people in

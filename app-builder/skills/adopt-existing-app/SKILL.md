@@ -11,6 +11,11 @@ platform's **managed database** — without throwing away their working code. As
 the one-time setup is done (see set-up-my-computer) and this machine is signed in as
 the team account.
 
+> **Not for People apps.** If what they have is a People-team app (employee data such
+> as reviews, ratings or personal details, or anything in `AstroLabs-people`), stop
+> and use the **people-app-builder** plugin's **adopt-existing-app**. It must never
+> land in this team's org or Netlify team.
+
 **Be conservative.** Preserve their working code; add the platform's wiring *around*
 it — don't rewrite their app's features to fit the template. When something needs a
 real judgment call (a stack you can't cleanly fit, data sitting in a private place),
@@ -53,7 +58,9 @@ stop and explain in plain words.
      not create a new one.
 
 3. **Create the platform home — a private repo in the team org** (`$BUILDER_GH_ORG`),
-   never their personal account:
+   never their personal account. If the app might hold People-team data (employee
+   data, reviews, personal details) or belong to the People team, ask before creating
+   anything and wait. If it does, stop and use **people-app-builder** instead:
    `gh repo create "$BUILDER_GH_ORG/<slug>" --private` (slug per new-app's naming rule).
    Point the local folder at it **over HTTPS** (avoid SSH/wrong-account): add the new
    repo as `origin` (rename any existing remote to `old`), then push their code —
