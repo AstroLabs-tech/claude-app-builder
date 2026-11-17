@@ -145,6 +145,48 @@ test_undo_preview_clash_says_no_undo_was_tried() {
   expect_err "no undo was tried"
 }
 
+test_undo_keeps_the_reason_when_github_is_unreachable() {
+  make_clone
+  good=$(git rev-parse HEAD)
+  git remote set-url origin "$WORK/missing.git"
+  run undo.sh "$good" "x"
+  expect_code 1
+  expect_err "GitHub refused to fetch the latest changes"
+  expect_err "no undo was tried"
+  check "one plain line, not git's output" [ "$(printf '%s\n' "$ERR" | grep -c .)" = 1 ]
+}
+
+# The network-vs-refusal rule, on real git error texts.
+# shellcheck source=/dev/null
+classify() { (. "$SCRIPTS/lib.sh"; git_failed "push" "$1") 2>/dev/null; echo $?; }
+test_git_failed_retries_network_and_server_errors() {
+  setup
+  check "503 retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': The requested URL returned error: 503")" = 6 ]
+  check "429 retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': The requested URL returned error: 429")" = 6 ]
+  check "proxy dns retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': Could not resolve proxy: proxy.company")" = 6 ]
+  check "windows reset retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': Recv failure: Connection was reset")" = 6 ]
+  check "dns retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': Could not resolve host: github.com")" = 6 ]
+  check "proxy retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': CONNECT tunnel failed, response 403")" = 6 ]
+  check "403 refused" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': The requested URL returned error: 403")" = 1 ]
+  check "rule refused" [ "$(classify "! [remote rejected] main -> main (protected branch hook declined)")" = 1 ]
+}
+
+test_clean_start_refused_push_says_refused_not_retry() {
+  make_old_app
+  run clean-start.sh prepare "$(native_path "$WORK/missing.git")"
+  run clean-start.sh push "$(native_path "$WORK/missing.git")" demo
+  expect_code 1
+  expect_err "GitHub refused to read"
+}
+
+test_clean_start_unreachable_github_is_retryable() {
+  make_old_app
+  run clean-start.sh prepare https://nonexistent.invalid/people.git
+  run clean-start.sh push https://nonexistent.invalid/people.git demo
+  expect_code 6
+  expect_err "couldn't reach GitHub"
+}
+
 test_clean_start_rerun_after_successful_push_is_a_no_op() {
   make_old_app
   run clean-start.sh prepare "$URL"

@@ -40,8 +40,9 @@ the app's folder: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/<script>"`.
    this one; it's still live):
    - exit 6: still building (or GitHub is still recording the publish); check again
      in a little while;
-   - exit 8: the new version is ready, but publishing is paused on this app; say so,
-     and never say it's live;
+   - exit 8: the new version is ready but isn't the live one: publishing is paused on
+     this app, or an older version was put back. Say so plainly, and never say it's
+     live;
    - exit 9: Netlify is holding it for the same one-time admin OK as a first preview
      (see **save-preview** step 6); the previous version stays up until then;
    - exit 1: it didn't build; the previous version is still up. Explain the reason in

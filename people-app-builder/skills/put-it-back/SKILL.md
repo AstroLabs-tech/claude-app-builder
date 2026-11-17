@@ -15,9 +15,17 @@ the risky parts; run them inside the app's folder:
 1. **Roll back:** `rollback.sh`. It republishes the last version that was really
    live before the current one, confirms it is now the live one, and prints
    `restored=<id>` and `good_commit=<sha>`.
-   - Exit 6: a new live version is building and would replace the rollback when it
-     finished. If it printed `restored=…`, the rollback happened but may be replaced:
-     wait for that build, then run it again. Otherwise wait a little and run it again.
+   - Exit 6 **without** `restored=…`: a new live version is still building, and it
+     would replace the rollback the moment it finished. Wait a little and run it again.
+   - Exit 6 **with** `restored=<id>`: the rollback happened, but a build that started
+     meanwhile may replace it. Don't run the rollback again straight away — that could
+     go back one version too far. Wait, then run `rollback.sh check <id>` (exit 6 means
+     still building, so check again later). `rollback=holds`: done, carry on to step 2.
+     `rollback=replaced`: the new build went live, so run `rollback.sh` again. Exit 9
+     (it also printed `rollback=holds`): the app is back for now, but a new live
+     version is waiting for an admin's approval and approving it would replace the
+     rollback. Don't retry; tell the builder their admin must not approve it until the
+     fix is in (step 2).
    - Exit 1: it says why: the app's versions couldn't be read, it couldn't tell which
      version is live (it won't guess), or there's nothing earlier to go back to.
      Explain in one plain sentence and stop.

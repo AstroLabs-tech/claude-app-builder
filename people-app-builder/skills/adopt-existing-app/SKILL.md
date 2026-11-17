@@ -96,12 +96,13 @@ sign-in for approved people, its data in the platform's managed database, and
      It makes the single clean-start commit, checks the folder would push only to
      that People repo, and pushes it as `main` (`already_pushed=yes` means an earlier
      run's push went through; carry on).
-     - If the push itself failed (for example the network dropped), run **both**
-       commands again: `prepare` lists everything again, and `push` folds any fixes
-       into the same single commit, so nothing removed survives in an older one.
-     - If it says the folder *would push somewhere other than* the People repo, or
-       exits 4 (*already has a different main*, or a `people-main` line it didn't
-       make), don't retry: stop and ask the builder.
+     - Exit 6 (*couldn't reach GitHub*): run **both** commands again in a moment:
+       `prepare` lists everything again, and `push` folds any fixes into the same
+       single commit, so nothing removed survives in an older one.
+     - Exit 1 (*GitHub refused…*, or the folder *would push somewhere other than* the
+       People repo) or exit 4 (*already has a different main*, or a `people-main`
+       line it didn't make): don't retry. Stop, explain in one plain sentence, and ask
+       the builder; it usually needs their admin.
 
      Never push the old branches or tags. Then connect Netlify and sign-in as in
      **new-app** steps 4–5.

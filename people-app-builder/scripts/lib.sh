@@ -11,7 +11,8 @@ set -euo pipefail
 #   4 the builder has to decide something first   5 the Netlify site name is taken
 #   6 Netlify is still busy; try again shortly
 #   7 changes clash, or someone else's work is in the way
-#   8 the new version is ready, but publishing is paused on the site
+#   8 the new version is ready but isn't the live one (publishing paused, or an older
+#     version was put back)
 #   9 Netlify is holding a build until an admin approves this person
 # shellcheck disable=SC2034  # used by the scripts that source this file
 readonly E_FAIL=1 E_USAGE=2 E_NOT_SET_UP=3 E_DECIDE=4 E_TAKEN=5 E_WAIT=6 E_CLASH=7 E_PAUSED=8 E_HELD=9
@@ -72,6 +73,20 @@ build_state() {
 # (*@d, @d or d). Used by access.sh for both removing and locking.
 # shellcheck disable=SC2034
 APPROVED_JQ='def approved($set): (split("@")[1]) as $d | ($set[.] or $set["*@" + $d] or $set["@" + $d] or $set[$d]);'
+
+# Explain a failed git call against GitHub and stop: network trouble or a temporary
+# GitHub error is worth retrying (6); a refusal (permissions, rules, missing repo) or
+# anything unknown is not (1). Network patterns are checked first.
+git_failed() {
+  local what=$1 out=$2
+  if printf '%s' "$out" | grep -qiE 'could not resolve (host|proxy)|connection (was )?(refused|reset|timed out)|timed out|network is unreachable|failed to connect|tunnel failed|returned error: (5[0-9][0-9]|429|408)|early eof|remote end hung up'; then
+    die "$E_WAIT" "couldn't reach GitHub to $what; try again in a moment"
+  fi
+  if printf '%s' "$out" | grep -qiE 'returned error: 4|denied|permission|protected|rejected|not found|does not appear to be'; then
+    die "$E_FAIL" "GitHub refused to $what: $(printf '%s' "$out" | head -1)"
+  fi
+  die "$E_FAIL" "couldn't $what: $(printf '%s' "$out" | head -1)"
+}
 
 # "test" -> dev, "live" -> production.
 list_context() {
