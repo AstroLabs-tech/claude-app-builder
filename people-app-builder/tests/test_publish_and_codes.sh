@@ -374,6 +374,7 @@ test_rollback_check_reports_held_live_build() {
       | .netlify.hidden_deploys = [{id: "dh", context: "production", state: "pending_review"}]'
   run rollback.sh check d1
   expect_code 9
+  expect_out "rollback=holds"
   expect_err "waiting for an admin's approval"
 }
 
@@ -386,6 +387,27 @@ test_rollback_check_ignores_held_branch_and_preview_builds() {
   run rollback.sh check d1
   expect_code 0
   expect_out "rollback=holds"
+}
+
+test_rollback_check_replaced_wins_over_held_build() {
+  # B replaced the restored A while C waits for approval: report the replacement
+  setup "$(rb_state "[$(dep dB production ready t4 cB), $(dep dA production ready t1 cA)]" dB)"; linked
+  st '.netlify.builds["site-1"] = [{sha: "cC", deploy_state: "pending_review", deploy_id: "dC"}]
+      | .netlify.hidden_deploys = [{id: "dC", context: "production", state: "pending_review"}]'
+  run rollback.sh check dA
+  expect_code 0
+  expect_out "rollback=replaced"
+}
+
+test_rollback_busy_build_past_first_page_is_found() {
+  local d i
+  d="[$(dep d9 production ready t9 c9)"
+  for i in $(seq 1 100); do d="$d, $(dep "p$i" deploy-preview ready '' x)"; done
+  d="$d, $(dep dbusy production building '' cb), $(dep d1 production ready t1 c1)]"
+  setup "$(rb_state "$d" d9)"; linked
+  run rollback.sh
+  expect_code 6
+  expect_log_count "restoreSiteDeploy" 0
 }
 
 test_rollback_check_rejects_unknown_id() {

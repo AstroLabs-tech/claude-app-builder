@@ -24,9 +24,19 @@ deploys_page() {
 # held_live() reports those.
 ACTIVE='["new", "enqueued", "building", "uploading", "uploaded", "preparing", "prepared", "processing", "processed", "retrying", "accepted"]'
 
+# Active production builds, across every page (previews can push them past page 1).
 busy_now() {
-  deploys_page 1 | jqr -r --argjson a "$ACTIVE" '[.[] | select(.context == "production" and (.state as $s | $a | index($s)))] | length' \
-    || die "$E_FAIL" "couldn't read the app's versions"
+  local page=1 body n count=0 c
+  while :; do
+    body=$(deploys_page "$page") || die "$E_FAIL" "couldn't read the app's versions"
+    c=$(printf '%s' "$body" | jqr -r --argjson a "$ACTIVE" '[.[] | select(.context == "production" and (.state as $s | $a | index($s)))] | length') \
+      || die "$E_FAIL" "couldn't read the app's versions"
+    count=$((count + c))
+    n=$(printf '%s' "$body" | jqr -r 'length') || die "$E_FAIL" "couldn't read the app's versions"
+    [ "$n" -eq 100 ] || break
+    page=$((page + 1))
+  done
+  echo "$count"
 }
 
 # Production builds held for an admin's approval: once approved, they would publish over
@@ -68,10 +78,12 @@ if [ "${1:-}" = check ]; then
   [ "$known" = yes ] || die "$E_USAGE" "'$2' isn't one of this app's live versions; use the restored= value"
   busy=$(busy_now) || exit $?
   [ "$busy" = 0 ] || die "$E_WAIT" "the new live version is still building; check again shortly"
-  held=$(held_live) || exit $?
-  [ "$held" = 0 ] || die "$E_HELD" "a new live version is waiting for an admin's approval; once approved it would replace the rollback"
+  # What's live decides the outcome; a held build is reported on top of that.
   live=$(live_now) || exit $?
-  if [ "$live" = "$2" ]; then echo "rollback=holds"; else echo "rollback=replaced"; fi
+  if [ "$live" != "$2" ]; then echo "rollback=replaced"; exit 0; fi
+  echo "rollback=holds"
+  held=$(held_live) || exit $?
+  [ "$held" = 0 ] || die "$E_HELD" "the rollback holds for now, but a new live version is waiting for an admin's approval and would replace it once approved"
   exit 0
 fi
 [ $# -eq 0 ] || die "$E_USAGE" "usage: rollback.sh | rollback.sh check <restored-id>"

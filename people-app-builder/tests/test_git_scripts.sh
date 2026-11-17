@@ -164,6 +164,7 @@ test_git_failed_retries_network_and_server_errors() {
   check "503 retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': The requested URL returned error: 503")" = 6 ]
   check "429 retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': The requested URL returned error: 429")" = 6 ]
   check "proxy dns retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': Could not resolve proxy: proxy.company")" = 6 ]
+  check "windows reset retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': Recv failure: Connection was reset")" = 6 ]
   check "dns retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': Could not resolve host: github.com")" = 6 ]
   check "proxy retry" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': CONNECT tunnel failed, response 403")" = 6 ]
   check "403 refused" [ "$(classify "fatal: unable to access 'https://github.com/x/y.git/': The requested URL returned error: 403")" = 1 ]
