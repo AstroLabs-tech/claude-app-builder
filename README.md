@@ -27,6 +27,11 @@ app), GitHub (one builder org per team — the ops team uses `AstroLabs-ops`), a
 
 ## Install (each builder, once)
 
+Works on **Mac and Windows**. On Windows the skills run in Git Bash (set-up installs
+Git for Windows and the tools with winget). Starting a brand-new app or bringing in an
+existing one still needs a Mac for now (both drive `netlify init`'s menus); everything
+else, including Ops Hub modules, works on Windows.
+
 In the Claude Code tab of the Claude desktop app:
 
 ```
@@ -39,7 +44,7 @@ To keep getting improvements, open `/plugin`, go to **Marketplaces**, select
 background while you work and apply the next time you open the Code tab; pick
 **Update marketplace** there to get one right away.
 
-Set the model to **Opus 4.8** and turn on **Auto mode** (bottom of the Code tab) —
+Set the model to the **latest Opus** and turn on **Auto mode** (bottom of the Code tab) —
 setup runs far more reliably on it. Then say **set up my computer** and have ready
 (your admin gives you these):
 - your **GitHub access token**

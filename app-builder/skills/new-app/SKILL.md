@@ -14,6 +14,22 @@ connected to its own Netlify site. Assumes the one-time platform setup is done
 > **new-app**. If it isn't clear which team the app is for, ask before creating
 > anything; if it's People, stop and point them to the People plugin.
 
+> **Not on Windows (yet).** Run `uname -s` first. If it shows `MINGW…` / `MSYS…`,
+> stop before creating anything: connecting a new app to Netlify means driving
+> `netlify init`'s menus with `expect`, which Git Bash doesn't have. Say plainly:
+> *"Starting a brand-new app from a Windows computer isn't ready yet — ask Piotr to
+> create it for you. Once he has, tell me its name and I'll bring it onto this
+> computer."*
+>
+> **Bringing an admin-created app onto a Windows computer** (when they come back with
+> the name): clone it over HTTPS as in step 2 —
+> `git clone "https://github.com/$BUILDER_GH_ORG/<slug>.git" && cd <slug>` — run
+> `bash scripts/bootstrap.sh`, then link the folder to the app's site without a menu:
+> `netlify link --git-remote-url "https://github.com/$BUILDER_GH_ORG/<slug>"`. If that
+> doesn't find exactly one site, stop and say *"Piotr needs to finish connecting this
+> app first."* Run every later step (show me, save a preview, make it live, put it
+> back) from that folder.
+
 ## Steps
 
 1. **Name it.** Turn what they said into a hyphenated, lowercase slug
@@ -50,7 +66,11 @@ connected to its own Netlify site. Assumes the one-time platform setup is done
    mis-drive:
 
    ```bash
-   CFG="$HOME/Library/Preferences/netlify/config.json"
+   case "$(uname -s)" in                                # Netlify CLI's own config folder
+     Darwin) CFG="$HOME/Library/Preferences/netlify/config.json" ;;
+     MINGW*|MSYS*) CFG="$(cygpath -u "$APPDATA")/netlify/Config/config.json" ;;
+     *) CFG="${XDG_CONFIG_HOME:-$HOME/.config}/netlify/config.json" ;;
+   esac
    [ -f "$CFG" ] || netlify status >/dev/null 2>&1     # ensure the CLI created it
    NID=$(jq -r '.userId // "undefined"' "$CFG" 2>/dev/null); [ -n "$NID" ] || NID=undefined
    jq --arg id "$NID" --arg t "$(gh auth token)" --arg u "$(gh api user --jq .login)" \
