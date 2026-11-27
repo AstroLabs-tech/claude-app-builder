@@ -16,6 +16,13 @@ the team account.
 > and use the **people-app-builder** plugin's **adopt-existing-app**. It must never
 > land in this team's org or Netlify team.
 
+> **Not on Windows (yet).** Run `uname -s` first. If it shows `MINGW…` / `MSYS…`,
+> stop before changing anything: step 6 drives `netlify init`'s menus with `expect`,
+> which Git Bash doesn't have. Say plainly: *"Bringing an existing app onto the
+> platform from a Windows computer isn't ready yet — ask Piotr to do this part, and
+> you can carry on working on it from here."* (If it's meant to become part of the Ops
+> Hub, that's **work-on-a-module**, which does work on Windows.)
+
 **Be conservative.** Preserve their working code; add the platform's wiring *around*
 it — don't rewrite their app's features to fit the template. When something needs a
 real judgment call (a stack you can't cleanly fit, data sitting in a private place),
