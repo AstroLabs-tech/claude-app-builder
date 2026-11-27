@@ -58,8 +58,9 @@ permission — click Yes"* before each one and wait.
    ```bash
    export PATH="/c/Program Files/nodejs:/c/Program Files/GitHub CLI:$(cygpath -u "$LOCALAPPDATA")/Microsoft/WinGet/Links:$(cygpath -u "$APPDATA")/npm:$PATH"
    ```
-   Also append to `~/.bashrc` a jq wrapper, because jq on Windows ends every line with
-   an invisible `\r` that breaks the next command. It must hand back **jq's** exit
+   Also add a jq wrapper — define it in the current shell **and** append it to
+   `~/.bashrc`, same as the PATH line — because jq on Windows ends every line with an
+   invisible `\r` that breaks the next command. It must hand back **jq's** exit
    status, not `tr`'s — the publish and module checks rely on `jq -e` failing to stop:
    `jq() { command jq "$@" | tr -d '\r'; return "${PIPESTATUS[0]}"; }`
    A "command not found" right after an install almost always means PATH, not a failed
